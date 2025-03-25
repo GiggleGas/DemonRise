@@ -1,18 +1,34 @@
+using ppCore.Manager;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class GameEntry : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
+    public void Awake()
     {
-        
+        GameObject.DontDestroyOnLoad(this);
+        Application.targetFrameRate = 60;
+        ManagerLauncher.Instance.Init();
     }
-
-    // Update is called once per frame
-    void Update()
+    public void Start()
     {
-        
+        ManagerLauncher.Instance.Start();
+    }
+    public void Update()
+    {
+        ManagerLauncher.Instance.Update();
+    }
+    public void LateUpdate()
+    {
+        ManagerLauncher.Instance.LateUpdate();
+    }
+    public void FixedUpdate()
+    {
+        ManagerLauncher.Instance.FixedUpdate();
+    }
+    public void OnDestroy()
+    {
+        ManagerLauncher.Instance.Destroy();
     }
 }
