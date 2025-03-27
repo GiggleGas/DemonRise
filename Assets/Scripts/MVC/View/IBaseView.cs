@@ -6,15 +6,13 @@ namespace PDR
 {
     public interface IBaseView
     {
-        BaseController _controller { get; set; }
-
         bool IsInit();
 
         bool IsOpen();
 
-        bool InitUI();
+        void InitUI();
 
-        bool InitData();
+        void InitData();
 
         void Open(params object[] args);
 
@@ -22,13 +20,8 @@ namespace PDR
 
         void Destroy();
 
-        // 执行本模块操作
-        void ApplyFunc(string eventName, params System.Object[] args);
-
-        void ApplyControllerFunc(int controllerKey, string eventName, params System.Object[] args);
-
         void SetVisible(bool bVisible);
 
-        int ViewID { get; set; }
+        string ViewID { get; set; }
     }
 }
