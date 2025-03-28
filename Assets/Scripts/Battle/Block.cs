@@ -6,14 +6,23 @@ namespace PDR
 {
     public enum BlockType
     {
-
+        Walkable,
+        Obstacle
     }
 
     public class BlockInfo
     {
         public int x;
         public int y;
-        BlockType type;
+        public Vector2 location;
+        public BlockType type;
+        public BlockInfo(int x, int y, Vector2 loc, BlockType t = BlockType.Walkable)
+        {
+            this.x = x;
+            this.y = y;
+            location = loc;
+            type = t;
+        }
     }
 
     public class Block

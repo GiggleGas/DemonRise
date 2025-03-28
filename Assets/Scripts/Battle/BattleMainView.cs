@@ -36,9 +36,11 @@ namespace PDR
             }
 
             int randomIndex = UnityEngine.Random.Range(0, 6);
-            diceImg.sprite = diceSprites[randomIndex]; 
-
-            EventMgr.Instance.Register<DiceStateChange>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_PIC, ChangeDiceState);
+            diceImg.sprite = diceSprites[randomIndex];
+            
+            EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_SPRITE, ChangeDiceBtnSprite);
+            EventMgr.Instance.Register<bool>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, ChangeDiceBtnState);
+            EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, UpdateEnergy);
         }
 
         private void OnClickDiceBtn()
@@ -47,22 +49,14 @@ namespace PDR
             diceBtn.enabled = false;
         }
 
-
-        private void ChangeDiceState(DiceStateChange diceStateChange)
+        private void ChangeDiceBtnSprite(int diceSpriteID)
         {
-            if(diceStateChange == DiceStateChange.Restart)
-            {
-                diceBtn.enabled = true;
-            }
-            else
-            {
-                int randomIndex = UnityEngine.Random.Range(1, 7); // 随机选择一个骰子图片
-                diceImg.sprite = diceSprites[randomIndex - 1]; // 显示最终点数对应的图片
-                if (diceStateChange == DiceStateChange.GetResult)
-                {
-                    EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE, SubEventType.GET_DICE_RESULT, randomIndex);
-                }
-            }
+            diceImg.sprite = diceSprites[diceSpriteID];
+        }
+
+        private void ChangeDiceBtnState(bool bValue)
+        {
+            diceBtn.enabled = bValue;
         }
 
         private void OnClickQuitBtn() 

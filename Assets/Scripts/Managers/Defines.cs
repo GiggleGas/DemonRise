@@ -31,7 +31,9 @@ namespace PDR
 
         // EVENT_BATTLE_UI
         public const int OPEN_BATTLE_MAIN_VIEW = 101;
-        public const int ROLL_THE_DICE = 102;
-        public const int CHANGE_DICE_PIC = 103;
+        public const int ROLL_THE_DICE = 102; // view -> mgr
+        public const int CHANGE_DICE_STATE = 103;
+        public const int CHANGE_DICE_SPRITE = 104;
+        public const int UPDATE_ENERGY = 105;
     }
 }
