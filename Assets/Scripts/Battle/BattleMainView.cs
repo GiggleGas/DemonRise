@@ -10,10 +10,16 @@ namespace PDR
 { 
     public class BattleMainView : BaseView
     {
+        // UI控件
         private Button diceBtn;
         private Image diceImg;
         private Button quitBtn;
         private TextMeshProUGUI energyText;
+        private TextMeshProUGUI playerHealth;
+        private TextMeshProUGUI playerMaxHealth;
+        private TextMeshProUGUI playerAttack;
+        private TextMeshProUGUI playerExperience;
+        private TextMeshProUGUI playerLevel;
 
         private Sprite[] diceSprites; // 存储骰子图片的数组
 
@@ -24,7 +30,11 @@ namespace PDR
             quitBtn = transform.Find("quitBtn").GetComponent<Button>();
             diceImg = transform.Find("diceBtn").GetComponent<Image>();
             energyText = transform.Find("energy").GetComponent<TextMeshProUGUI>();
-
+            playerHealth = transform.Find("playerHealth").GetComponent<TextMeshProUGUI>();
+            playerMaxHealth = transform.Find("playerMaxHealth").GetComponent<TextMeshProUGUI>();
+            playerAttack = transform.Find("playerAttack").GetComponent<TextMeshProUGUI>();
+            playerExperience = transform.Find("playerExperience").GetComponent<TextMeshProUGUI>();
+            playerLevel = transform.Find("playerLevel").GetComponent<TextMeshProUGUI>();
 
             diceBtn.onClick.AddListener(OnClickDiceBtn);
             quitBtn.onClick.AddListener(OnClickQuitBtn);
@@ -41,6 +51,7 @@ namespace PDR
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_SPRITE, ChangeDiceBtnSprite);
             EventMgr.Instance.Register<bool>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, ChangeDiceBtnState);
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, UpdateEnergy);
+            EventMgr.Instance.Register<PlayerState>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_PLAYERSTATE, UpdatePlayerState);
         }
 
         private void OnClickDiceBtn()
@@ -67,6 +78,15 @@ namespace PDR
         public void UpdateEnergy(int energy)
         {
             energyText.text = energy.ToString();
+        }
+
+        public void UpdatePlayerState(PlayerState player)
+        {
+            playerHealth.text = player._health.ToString();
+            playerMaxHealth.text = player._maxHealth.ToString();
+            playerAttack.text = player._attack.ToString();
+            playerExperience.text = player._experience.ToString();
+            playerLevel.text = player._level.ToString();
         }
     }
 }

@@ -35,5 +35,6 @@ namespace PDR
         public const int CHANGE_DICE_STATE = 103;
         public const int CHANGE_DICE_SPRITE = 104;
         public const int UPDATE_ENERGY = 105;
+        public const int UPDATE_PLAYERSTATE = 106;
     }
 }

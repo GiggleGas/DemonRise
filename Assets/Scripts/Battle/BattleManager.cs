@@ -45,8 +45,8 @@ namespace PDR
 
         public void OnStart()
         {
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.OPEN_BATTLE_MAIN_VIEW);
-            UpdateBattleStage(BattleStage.WaitingForRolling);
+            //EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.OPEN_BATTLE_MAIN_VIEW);
+            //UpdateBattleStage(BattleStage.WaitingForRolling);
         }
 
         protected void InitEvents()
@@ -64,8 +64,8 @@ namespace PDR
 
         public void UpdateBattleStage(BattleStage newBattleStage)
         {
-            battleStage = newBattleStage;
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE, SubEventType.UPDATE_GAME_STAGE, newBattleStage);
+            //battleStage = newBattleStage;
+            //EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE, SubEventType.UPDATE_GAME_STAGE, newBattleStage);
         }
     }
 }
