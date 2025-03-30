@@ -19,12 +19,21 @@ namespace PDR
         GetResult
     }
 
+    public enum BattleStage
+    {
+        WaitingForAction,
+        Rolling,
+        UpdatingMove,
+        Gambling
+    }
+
     /// <summary>
     /// 虽然叫UIManager但干的大概是battlemgr的活，battlemanager用来搞选关和进关这种逻辑吧
     /// </summary>
     [Manager(ManagerPriority.Delay)]
     public class BattleUIManager : ppCore.Common.Singleton<BattleUIManager>, IManager
     {
+        public Sprite[] diceSprites; // 存储骰子图片的数组
         public void OnAwake()
         {
             ViewManager.Instance.Register(ViewType.BattleMainView, new ViewInfo()
@@ -34,9 +43,23 @@ namespace PDR
                 order = 0,
             });
 
-            //EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.OPEN_BATTLE_MAIN_VIEW, OpenBattleMainView);
-            EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.ROLL_THE_DICE, BeginRolling);
+            ViewManager.Instance.Register(ViewType.GamblingView, new ViewInfo()
+            {
+                viewName = "GamblingView",
+                parentTransform = ViewManager.Instance.canvasTransform,
+                order = 1,
+            });
 
+            EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.ROLL_THE_DICE, BeginRolling);
+            EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.GAMBLING_VIEW_FINISH_LOAD, OnGamblingFinishLoad);
+
+            diceSprites = new Sprite[6];
+            for (int i = 0; i < 6; i++)
+            {
+                diceSprites[i] = Resources.Load<Sprite>($"Pics/diceRed{i + 1}");
+            }
+
+            _battleStage = BattleStage.WaitingForAction;
             InitMap();
             InitPlayer();
             InitUI();
@@ -44,30 +67,71 @@ namespace PDR
 
         public void OnUpdate()
         {
-            if(bIsRolling)
+            if(bShouldHandlePlayerInput())
             {
-                RollTheDice();
-                return;
+                HandlePlayerInput();
             }
 
-            if(bPlayerMoving)
+            if(_battleStage == BattleStage.Rolling)
+            {
+                RollTheDice();
+            }
+            else if(_battleStage == BattleStage.UpdatingMove)
             {
                 SmoothMovement();
             }
-            else if(energy > 0)
+        }
+
+        #region GameState
+        public BattleStage _battleStage;
+
+        public void SetBattleStage(BattleStage battleStage)
+        {
+            _battleStage = battleStage;
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, battleStage);
+        }
+        #endregion
+
+        #region PlayerInput
+
+        private void HandlePlayerInput()
+        {
+            if(bShouldHandlePlayerInput())
             {
-                HandleMovementInput();
-            }
-            else
-            {
-                HandleDiceInput();
+                if(energy == 0)
+                {
+                    HandleDiceInput();
+                }
+                else
+                {
+                    HandleMovementInput();
+                }
             }
         }
+
+        private bool bShouldHandlePlayerInput()
+        {
+            return _battleStage == BattleStage.WaitingForAction;
+        }
+
+        private void HandleDiceInput()
+        {
+            if (Input.GetKeyDown(KeyCode.Space)) BeginRolling();
+        }
+
+        private void HandleMovementInput()
+        {
+            if (Input.GetKeyDown(KeyCode.UpArrow)) TryMove(0, 1);  // 上
+            if (Input.GetKeyDown(KeyCode.DownArrow)) TryMove(0, -1); // 下
+            if (Input.GetKeyDown(KeyCode.LeftArrow)) TryMove(-1, 0); // 左
+            if (Input.GetKeyDown(KeyCode.RightArrow)) TryMove(1, 0);  // 右
+        }
+
+        #endregion
 
         #region PlayerState
         public PlayerState _playerState;
         private GameObject playerGO;
-        bool bPlayerMoving = false;
         private Animator playerAnimator;
         private string currentAnimation;
 
@@ -80,7 +144,7 @@ namespace PDR
             }
 
             playerGO = GameObject.Find("playerGO").gameObject;
-            _playerState = new PlayerState(100, 10, 100, walkableBlocks[42]);
+            _playerState = new PlayerState(100f, 10f, 15f, 100, walkableBlocks[42]);
             UpdatePlayerPosition(_playerState._blockInfo, true);
             playerAnimator = playerGO.GetComponent<Animator>();
             UpdatePlayerAnim("Idle");
@@ -105,13 +169,6 @@ namespace PDR
             }
         }
 
-        private void HandleMovementInput()
-        {
-            if (Input.GetKeyDown(KeyCode.UpArrow)) TryMove(0, 1);  // 上
-            if (Input.GetKeyDown(KeyCode.DownArrow)) TryMove(0, -1); // 下
-            if (Input.GetKeyDown(KeyCode.LeftArrow)) TryMove(-1, 0); // 左
-            if (Input.GetKeyDown(KeyCode.RightArrow)) TryMove(1, 0);  // 右
-        }
 
         void TryMove(int dx, int dy)
         {
@@ -122,9 +179,9 @@ namespace PDR
             {
                 _playerState._blockInfo.OnStepOff();
                 _playerState._blockInfo = gridData[newX, newY];
-                bPlayerMoving = true;
                 UpdateEnergy(energy - 1);
                 UpdatePlayerAnim("Jump");
+                SetBattleStage(BattleStage.UpdatingMove);
             }
         }
 
@@ -151,15 +208,18 @@ namespace PDR
 
         private void OnStopMove()
         {
-            bPlayerMoving = false;
-
-            _playerState._blockInfo.OnStepOn();
             UpdatePlayerAnim("Idle");
-
-            // todo 触发block事件
-            if (energy == 0)
+            if(_playerState._blockInfo.EnterNewView())
             {
-                UpdateDiceState(DiceStateChange.Restart);
+                // todo 触发block事件
+                _playerState._blockInfo.OnStepOn();
+                OpenGamblingView();
+                // EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.ENTER_GAMBLING, _playerState._blockInfo);
+                SetBattleStage(BattleStage.Gambling);
+            }
+            else
+            {
+                SetBattleStage(BattleStage.WaitingForAction);
             }
         }
         #endregion
@@ -188,7 +248,8 @@ namespace PDR
             int healingNum = 10;
             int battleNum = 10;
 
-            GameObject templeteGo = GameObject.Find("eventObjTemplete").gameObject;
+            GameObject battleEventGo = GameObject.Find("battleEvent").gameObject;
+            GameObject healEventGo = GameObject.Find("healEvent").gameObject;
             GameObject eventGoRoot = GameObject.Find("eventGoRoot").gameObject;
             List<int> randomIndexes = GetRandomIndexes(walkableBlocks.Count, healingNum + battleNum);
             foreach (int index in randomIndexes) 
@@ -196,16 +257,16 @@ namespace PDR
                 if(healingNum > 0)
                 {
                     walkableBlocks[index].eventType = BlockEventType.Healing;
-                    walkableBlocks[index].eventGo = GameObject.Instantiate(templeteGo, eventGoRoot.transform);
-                    walkableBlocks[index].eventGo.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>($"Pics/diceRed{1}");
+                    walkableBlocks[index].eventGo = GameObject.Instantiate(healEventGo, eventGoRoot.transform);
+                    //walkableBlocks[index].eventGo.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>($"Pics/diceRed{1}");
                     walkableBlocks[index].eventGo.GetComponent<Transform>().position = new Vector3(walkableBlocks[index].location.x, walkableBlocks[index].location.y);
                     healingNum--;
                 }
                 else
                 {
                     walkableBlocks[index].eventType = BlockEventType.Battle;
-                    walkableBlocks[index].eventGo = GameObject.Instantiate(templeteGo, eventGoRoot.transform);
-                    walkableBlocks[index].eventGo.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>($"Pics/diceRed{2}");
+                    walkableBlocks[index].eventGo = GameObject.Instantiate(battleEventGo, eventGoRoot.transform);
+                    //walkableBlocks[index].eventGo.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>($"Pics/diceRed{2}");
                     walkableBlocks[index].eventGo.GetComponent<Transform>().position = new Vector3(walkableBlocks[index].location.x, walkableBlocks[index].location.y);
                     battleNum--;
                 }
@@ -299,27 +360,13 @@ namespace PDR
             UpdateEnergy();
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_PLAYERSTATE, _playerState);
         }
-
-        /*private void OnGameStageChange(BattleStage newBattleStage)
-        {
-            if(newBattleStage == BattleStage.WaitingForRolling)
-            {
-                UpdateDiceState(DiceStateChange.Restart);
-            }
-            else if(newBattleStage == BattleStage.WaitingForAction)
-            {
-                UpdateEnergy();
-            }
-        }*/
         #endregion
 
         #region Dice
-        // DICE
         public float rollDuration = 0.5f; // 骰子滚动的持续时间
         public float rollInterval = 0.02f; // 骰子图片切换的时间间隔
         public float rollEnd = 0.0f; // 骰子最终时间
         public float lastRollTime = 0.0f; // 上次切换时间
-        private bool bIsRolling = false;
 
         private void UpdateDiceState(DiceStateChange diceStateChange)
         {
@@ -358,11 +405,7 @@ namespace PDR
 
         private void BeginRolling()
         {
-            if(bIsRolling)
-            {
-                return;
-            }
-            bIsRolling = true;
+            SetBattleStage(BattleStage.Rolling);
             rollEnd = Time.time + rollDuration;
             lastRollTime = Time.time;
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, false);
@@ -372,19 +415,43 @@ namespace PDR
         {
             rollEnd = 0.0f;
             lastRollTime = 0.0f;
-            bIsRolling = false;
+            SetBattleStage(BattleStage.WaitingForAction);
         }
 
-        private void HandleDiceInput()
-        {
-            if (Input.GetKeyDown(KeyCode.Space)) BeginRolling();
-        }
 
         public int energy = 0;
         private void UpdateEnergy(int newEnergy = 0)
         {
             energy = newEnergy;
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, energy);
+        }
+        #endregion
+
+        #region Gambling
+        protected void OnGamblingFinishLoad()
+        {
+            OnEnterGambling(_playerState._blockInfo);
+        }
+
+        public void OnEnterGambling(BlockInfo blockInfo)
+        {
+            InitPlayerData();
+            InitEnemyData();
+        }
+
+        private void OpenGamblingView()
+        {
+            ViewManager.Instance.Open(ViewType.GamblingView);
+        }
+
+        private void InitPlayerData()
+        {
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAMBLING_PLAYER_VIEW, _playerState);
+        }
+
+        private void InitEnemyData()
+        {
+
         }
         #endregion
     }

@@ -21,8 +21,6 @@ namespace PDR
         private TextMeshProUGUI playerExperience;
         private TextMeshProUGUI playerLevel;
 
-        private Sprite[] diceSprites; // 存储骰子图片的数组
-
         protected override void OnAwake()
         {
             base.OnAwake();
@@ -39,14 +37,8 @@ namespace PDR
             diceBtn.onClick.AddListener(OnClickDiceBtn);
             quitBtn.onClick.AddListener(OnClickQuitBtn);
 
-            diceSprites = new Sprite[6];
-            for (int i = 0; i < 6; i++)
-            {
-                diceSprites[i] = Resources.Load<Sprite>($"Pics/diceRed{i + 1}");
-            }
-
             int randomIndex = UnityEngine.Random.Range(0, 6);
-            diceImg.sprite = diceSprites[randomIndex];
+            diceImg.sprite = BattleUIManager.Instance.diceSprites[randomIndex];
             
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_SPRITE, ChangeDiceBtnSprite);
             EventMgr.Instance.Register<bool>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, ChangeDiceBtnState);
@@ -62,7 +54,7 @@ namespace PDR
 
         private void ChangeDiceBtnSprite(int diceSpriteID)
         {
-            diceImg.sprite = diceSprites[diceSpriteID];
+            diceImg.sprite = BattleUIManager.Instance.diceSprites[diceSpriteID];
         }
 
         private void ChangeDiceBtnState(bool bValue)

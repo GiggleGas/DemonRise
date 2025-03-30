@@ -34,6 +34,11 @@ namespace PDR
             type = t;
         }
 
+        public virtual bool EnterNewView()
+        {
+            return eventType == BlockEventType.Battle;
+        }
+
         public void OnStepOn()
         {
             GameObject.Destroy(eventGo);
@@ -41,11 +46,7 @@ namespace PDR
 
         public void OnStepOff()
         {
-            /*GameObject templeteGo = GameObject.Find("eventObjTemplete").gameObject;
-            GameObject eventGoRoot = GameObject.Find("eventGoRoot").gameObject;
-            GameObject eventGo = GameObject.Instantiate(templeteGo, eventGoRoot.transform);
-            eventGo.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>($"Pics/diceRed{3}");
-            eventGo.GetComponent<Transform>().position = new Vector3(location.x, location.y);*/
+
         }
     }
     public class BlockBase
