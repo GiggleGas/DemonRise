@@ -11,7 +11,7 @@ namespace PDR
         public string spritePath;
     }
 
-    public class PlayerState
+    public class PlayerState : MapPawn
     {
         public float _health;
         public float _maxHealth;
@@ -20,7 +20,6 @@ namespace PDR
         public int _experience;
         public int _upgradeExperience;
         public int _level;
-        public BlockInfo _blockInfo;
 
         public List<SkillInfo> skillInfos;
 
@@ -57,6 +56,12 @@ namespace PDR
             }
             _experience -= _upgradeExperience;
             return true;
+        }
+
+        public override void UpateBlockInfo(BlockInfo block)
+        {
+            base.UpateBlockInfo(block);
+            _blockInfo = block;
         }
     }
 }

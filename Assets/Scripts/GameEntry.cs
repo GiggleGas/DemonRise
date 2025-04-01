@@ -16,6 +16,10 @@ public class GameEntry : MonoBehaviour
 
     public spriteStruct[] sweetPrefabs;
     public Dictionary<string, Sprite> spriteConfig;
+
+    public GameObject blockUIPrefab;
+    public GameObject heroGoPrefab;
+
     public void Awake()
     {
         spriteConfig = new Dictionary<string, Sprite>();

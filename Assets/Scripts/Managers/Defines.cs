@@ -41,6 +41,12 @@ namespace PDR
 
         public const int ROLL_THE_DICE = 201; // view -> mgr
         public const int GAMBLING_VIEW_FINISH_LOAD = 202;
+        public const int DRAW_ROAD = 203;
+        public const int CLEAR_ROAD = 204;
+        public const int BLOCK_MOUSE_DOWN = 205;
+        public const int BLOCK_MOUSE_UP = 206;
+        public const int MOVE_GO = 207;
+        public const int MOVE_FINISH = 208;
 
     }
 }
