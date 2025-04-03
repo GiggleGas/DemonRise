@@ -11,37 +11,27 @@ namespace PDR
         Obstacle,
     }
 
-    public enum BlockEventType
-    {
-        Healing,
-        Battle
-    }
     public class BlockInfo
     {
-        public int x;
-        public int y;
-        public Vector2 location;
-        public BlockType type;
-        public BlockEventType eventType;
+        public Vector2Int _gridLocation;
+        public Vector2 _worldlocation;
+        public BlockType _type;
         public BlockUI blockUI;
-        public GameObject eventGo;
+        public MapPawn pawn;
 
-        public BlockInfo(int x, int y, Vector2 loc, BlockType t = BlockType.Walkable)
+        public BlockInfo(Vector2Int gridLocation, Vector2 loc, BlockType type = BlockType.Walkable)
         {
-            this.x = x;
-            this.y = y;
-            location = loc;
-            type = t;
-        }
-
-        public virtual bool EnterNewView()
-        {
-            return eventType == BlockEventType.Battle;
+            _gridLocation = gridLocation;
+            _worldlocation = loc;
+            _type = type;
         }
 
         public void OnStepOn()
         {
-            GameObject.Destroy(eventGo);
+            if(pawn != null)
+            {
+                GameObject.Destroy(pawn._gameObject);
+            }
         }
 
         public void OnStepOff()
@@ -52,48 +42,41 @@ namespace PDR
 
     public class BlockUI : MonoBehaviour
     {
-        private int _x;
-        private int _y;
-        private GameObject selected;
-        private GameObject path;
-
-        public void SetGridLocation(int x, int y)
-        {
-            _x = x;
-            _y = y;
-        }
+        private Vector2Int _gridLocation;
+        private GameObject _selected;
+        private GameObject _path;
 
         private void Awake()
         {
-            selected = transform.Find("selected").gameObject;
-            path = transform.Find("path").gameObject;
+            _selected = transform.Find("selected").gameObject;
+            _path = transform.Find("path").gameObject;
         }
 
         private void OnMouseOver()
         {
-            selected.SetActive(true);
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.DRAW_ROAD, _x, _y);
+            _selected.SetActive(true);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.DRAW_ROAD, _gridLocation);
         }
 
         private void OnMouseExit()
         {
-            selected.SetActive(false);
+            _selected.SetActive(false);
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CLEAR_ROAD);
         }
 
         private void OnMouseDown()
         {
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.BLOCK_MOUSE_DOWN, _x, _y);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.BLOCK_MOUSE_DOWN, _gridLocation);
         }
 
-        private void OnMouseUp()
+        public void SetGridLocation(Vector2Int gridLocation)
         {
-            // EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.BLOCK_MOUSE_UP, _x, _y);
+            _gridLocation = gridLocation;
         }
 
         public void ShowPath(bool value)
         {
-            path.SetActive(value);
+            _path.SetActive(value);
         }
     }
 

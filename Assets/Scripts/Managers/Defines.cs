@@ -35,7 +35,7 @@ namespace PDR
         public const int CHANGE_DICE_STATE = 103;
         public const int CHANGE_DICE_SPRITE = 104;
         public const int UPDATE_ENERGY = 105;
-        public const int UPDATE_PLAYERSTATE = 106;
+        public const int UPDATE_PLAYER_PAWN = 106;
         public const int ENTER_GAMBLING = 107;
         public const int UPDATE_GAMBLING_PLAYER_VIEW = 108;
 
@@ -47,6 +47,8 @@ namespace PDR
         public const int BLOCK_MOUSE_UP = 206;
         public const int MOVE_GO = 207;
         public const int MOVE_FINISH = 208;
+        public const int ATTACK_ENEMY = 209;
+        public const int ATTACK_FINISH = 210;
 
     }
 }

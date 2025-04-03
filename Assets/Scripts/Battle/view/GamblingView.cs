@@ -46,7 +46,7 @@ namespace PDR
             InitDice(2);
             InitPlayerGo("GamblingPlayer", out playerView);
             InitPlayerGo("GamblingEnemy", out enemyView);
-            EventMgr.Instance.Register<PlayerState>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAMBLING_PLAYER_VIEW, UpdatePlayerGo);
+            EventMgr.Instance.Register<PlayerPawn>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAMBLING_PLAYER_VIEW, UpdatePlayerGo);
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.GAMBLING_VIEW_FINISH_LOAD);
         }
 
@@ -105,7 +105,7 @@ namespace PDR
             }
         }
 
-        public void UpdatePlayerGo(PlayerState playerState)
+        public void UpdatePlayerGo(PlayerPawn playerState)
         {
             playerView.hpSlider.value = playerState._health / playerState._maxHealth;
             playerView.hpText.text = playerState._health.ToString() + "/" + playerState._maxHealth.ToString();

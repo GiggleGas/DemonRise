@@ -18,7 +18,8 @@ public class GameEntry : MonoBehaviour
     public Dictionary<string, Sprite> spriteConfig;
 
     public GameObject blockUIPrefab;
-    public GameObject heroGoPrefab;
+    public GameObject playerGoPrefab;
+    public GameObject enemyGoPrefab;
 
     public void Awake()
     {
