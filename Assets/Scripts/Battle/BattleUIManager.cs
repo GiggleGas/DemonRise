@@ -5,12 +5,19 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using TMPro;
+using Unity.VisualScripting;
 using Unity.VisualScripting.Antlr3.Runtime.Collections;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Android;
 using UnityEngine.Tilemaps;
 using UnityEngine.UIElements;
+using static Unity.Collections.AllocatorManager;
+using static Unity.VisualScripting.Member;
+using static UnityEngine.EventSystems.EventTrigger;
+using static UnityEngine.GraphicsBuffer;
 
 
 namespace PDR
@@ -22,83 +29,30 @@ namespace PDR
         GetResult
     }
 
-    public enum BattleStage
+    public enum BattleState
     {
+        Initialize,
+        PlayerTurn,
+        MonsterTurn,
+        Victory,
+        Defeat
+    }
+
+    public enum BattleSubState
+    {
+        // playerTurn
         WaitingForAction,
         Rolling,
+
         UpdatingMove,
         UpdateBattle,
     }
 
     public enum TeamType
     { 
+        None,
         Friend,
         Enemy
-    }
-
-    public class MoveComp : MonoBehaviour
-    {
-        public void RegisterEvents()
-        {
-            EventMgr.Instance.Register<MapPawn, List<Vector2Int>>(EventType.EVENT_BATTLE_UI, SubEventType.MOVE_GO, TryMoveGO);
-        }
-
-        private Coroutine currentMoveCoroutine; // 当前运行的移动协程
-        public void TryMoveGO(MapPawn pawn, List<Vector2Int> path)
-        {
-            // 开始移动协程
-            currentMoveCoroutine = StartCoroutine(MoveAlongPath(pawn, path));
-        }
-
-
-        /// <summary>
-        /// 沿路径移动的协程
-        /// </summary>
-        /// 
-        private IEnumerator MoveAlongPath(MapPawn obj, List<Vector2Int> path)
-        {
-            int currentPathIndex = 0;
-            Vector3 targetPosition;
-            float movementSpeed = 5.0f; // 可配置移动速度
-
-            // 跳过起始点（如果已经是正确位置）
-            if ((Vector2)obj.GetTransform().position == BattleManager.Instance.GetBlockWorldLocationByGridLocation(path[0]))
-            {
-                currentPathIndex++;
-            }
-
-            while (currentPathIndex < path.Count)
-            {
-                targetPosition = BattleManager.Instance.GetBlockWorldLocationByGridLocation(path[currentPathIndex]);
-
-                // 移动至下一个路径点
-                while (Vector3.Distance(obj.GetTransform().position, targetPosition) > 0.01f)
-                {
-                    obj.GetTransform().position = Vector3.MoveTowards(
-                        obj.GetTransform().position,
-                        targetPosition,
-                        movementSpeed * Time.deltaTime
-                    );
-                    yield return null;
-                }
-
-                // 确保精确到达
-                obj.UpdatePawnLocation(targetPosition, path[currentPathIndex]);
-                BattleManager.Instance.ModifyEnergy(-1);
-
-                // 更新地块事件 不期望在这里实现，再定夺
-                //BlockInfo currentBlock = BattleManager.Instance.GetBlockByGridLocation(path[currentPathIndex]);
-                //currentBlock.OnStepOn();
-
-                currentPathIndex++;
-
-                // 每个路径点之间的间隔（可选）
-                yield return new WaitForSeconds(0.1f);
-            }
-
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.MOVE_FINISH, obj);
-            currentMoveCoroutine = null;
-        }
     }
 
     /// <summary>
@@ -112,7 +66,11 @@ namespace PDR
             new Vector2Int(0, 1),   // 上
             new Vector2Int(1, 0),   // 右
             new Vector2Int(0, -1),  // 下
-            new Vector2Int(-1, 0)   // 左
+            new Vector2Int(-1, 0),   // 左
+            new Vector2Int(-1, 1),  // 左上
+            new Vector2Int(1, 1),    // 右上
+            new Vector2Int(-1, -1),  // 左下
+            new Vector2Int(1, -1)    // 右下
         };
 
         // Config
@@ -127,7 +85,14 @@ namespace PDR
         private GameObject enemyGoTemplete;
 
         // BattleState
-        public BattleStage _battleStage; // 当前战斗状态
+        public int currentLevel;
+        public int maxLevel;
+        public int dicePerLevel = 10; // 每关更新骰子数
+        public int energyPerRound = 1; // 每回合获得行动点数
+        public int remainingDice = 0; // 当前剩余骰子数量
+        public int energy = 0; // 当前行动值
+        public BattleState _battleState; // 当前战斗状态
+        public BattleSubState _battleSubState; // 副战斗状态
 
         // TileMap
         private Tilemap _tilemap; // 地图tilemap component
@@ -135,7 +100,7 @@ namespace PDR
         public BlockInfo[,] gridData; // 二维数组存储数据
         private List<Vector2Int> walkableBlocks = new List<Vector2Int>(); // 可移动区域缓存
         private List<Vector2Int> currentShowPath = new List<Vector2Int>(); // 当前为显示UI的格子
-        private List<EnemyPawn> enemyPawns; // 地图上所有敌方信息
+        public List<EnemyPawn> enemyPawns; // 地图上所有敌方信息
         public PlayerPawn _playerPawn; // 玩家Pawn
 
         // Dice
@@ -143,9 +108,6 @@ namespace PDR
         public float rollInterval = 0.02f; // 骰子图片切换的时间间隔
         public float rollEnd = 0.0f; // 骰子最终时间
         public float lastRollTime = 0.0f; // 上次切换时间
-
-        // UI
-        public int energy = 0;
 
         public void OnAwake()
         {
@@ -157,7 +119,10 @@ namespace PDR
             EventMgr.Instance.Register<Vector2Int>(EventType.EVENT_BATTLE_UI, SubEventType.DRAW_ROAD, OnDrawRoad);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.CLEAR_ROAD, OnClearRoad);
             EventMgr.Instance.Register<Vector2Int>(EventType.EVENT_BATTLE_UI, SubEventType.BLOCK_MOUSE_DOWN, OnClickBlock);
-            EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.MOVE_FINISH, OnPawnStopMove);
+            EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_MOVE_FINISH, OnPawnStopMove);
+            EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.AI_ATTACK_FINISH, OnAttack);
+            EventMgr.Instance.Register<MapPawn, MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_ATTACK_FINISH, OnAttack);
+            EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.AI_TURN_FINISH, OnEnemyMoveFinish);
 
             diceSprites = new Sprite[6];
             for (int i = 0; i < 6; i++)
@@ -174,33 +139,189 @@ namespace PDR
             playerGoTemplete = viewRoot.GetComponent<GameEntry>().playerGoPrefab;
             MoveComp moveComp = viewRoot.AddComponent<MoveComp>();
             moveComp.RegisterEvents();
+            AIMoveComp _AIMoveComp = viewRoot.AddComponent<AIMoveComp>(); 
+            _AIMoveComp.RegisterEvents();
 
-            _battleStage = BattleStage.WaitingForAction;
+            currentLevel = 0;
+            maxLevel = 3;
+
             InitMap();
             InitPlayer();
             InitUI();
+            InitializeLevel(currentLevel);
+            StartPlayerTurn();
         }
 
         public void OnUpdate()
         {
-            HandlePlayerInput();
-
-            if (_battleStage == BattleStage.Rolling)
+            if (_battleState == BattleState.PlayerTurn)
             {
-                RollTheDice();
+                HandlePlayerInput();
+                if (_battleSubState == BattleSubState.Rolling)
+                {
+                    RollTheDice();
+                }
             }
+
+        }
+
+        public GameEntry GetGameEntry()
+        {
+            return viewRoot.GetComponent<GameEntry>();
         }
 
         #region ------------------------------------------------------------------ GameStage 战斗状态 ------------------------------------------------------------------
 
+        private void InitializeLevel(int level)
+        {
+            // todo 读配置
+            RefreshBlockEvents(level);
+            UpdateDiceNum();
+        }
+
+        /// <summary>
+        /// 根据关卡刷新地图事件
+        /// </summary>
+        /// <param name="LevelID"></param>
+        protected void RefreshBlockEvents(int level)
+        {
+            // todo 根据levelID获取地块event配置，根据event配置生成
+            enemyPawns = new List<EnemyPawn>();
+            int enemyNum = 3;
+            List<int> randomIndexes = GetRandomIndexes(walkableBlocks.Count, enemyNum);
+            foreach (int index in randomIndexes)
+            {
+                if (enemyNum > 0)
+                {
+                    BlockInfo block = GetBlockByGridLocation(walkableBlocks[index]);
+                    EnemyPawn enemyPawn = new EnemyPawn(block, GameObject.Instantiate(enemyGoTemplete, pawnGoRoot.transform), TeamType.Enemy, 1, 1, 100f, 10f, 15f, 100);
+                    enemyPawn.PostInitialize();
+                    enemyPawns.Add(enemyPawn);
+                    enemyNum--;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
+        protected void UpdateDiceNum()
+        {
+            remainingDice += dicePerLevel;
+        }
+
+        /// <summary>
+        /// 开始玩家回合
+        /// </summary>
+        void StartPlayerTurn()
+        {
+            UpdateEnergy(energy + energyPerRound);
+            SetBattleState(BattleState.PlayerTurn, BattleSubState.WaitingForAction);
+        }
+
+        /// <summary>
+        /// 开始敌方回合
+        /// </summary>
+        void StartMonsterTurn()
+        {
+            SetBattleState(BattleState.MonsterTurn, BattleSubState.UpdatingMove);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.MOVE_AI);
+        }
+
+        public bool CanAIAttack(MapPawn enemy)
+        {
+            BlockInfo enemyBlock = GetBlockByGridLocation(enemy._gridPosition);
+            List<BlockInfo> attackList = GetBlockInRange(enemyBlock, enemy._attackRange);
+            if (attackList.Count == 0)
+            {
+                return false;
+            }
+            foreach (BlockInfo attack in attackList)
+            {
+                if (attack.pawn != null && !enemy.IsSameTeam(attack.pawn))
+                {
+                    // 只要有不同队就return true，目前还没召唤物啥的，先这样判断
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public bool TryAIAttack(MapPawn enemy)
+        {
+            BlockInfo enemyBlock = GetBlockByGridLocation(enemy._gridPosition);
+            List<BlockInfo> attackList = GetBlockInRange(enemyBlock, enemy._attackRange);
+            if (attackList.Count == 0)
+            {
+                return false;
+            }
+            foreach (BlockInfo attack in attackList)
+            {
+                if (attack.pawn != null && enemy.IsSameTeam(attack.pawn))
+                {
+                    // 目前还没召唤物啥的，先这样判断
+                    TryAttack(enemy, attack);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 当怪物被干掉时候调用
+        /// </summary>
+        /// <param name="monster"></param>
+        public void OnMonsterDefeated(EnemyPawn enemy)
+        {
+            enemyPawns.Remove(enemy);
+            if (enemyPawns.Count == 0)
+            {
+                if (currentLevel >= maxLevel)
+                {
+                    EndGame(true);
+                }
+                else
+                {
+                    currentLevel++;
+                    InitializeLevel(currentLevel);
+                }
+            }
+        }
+
+        public void OnEnemyMoveFinish()
+        {
+            CheckPlayerStatus();
+            StartPlayerTurn(); // 重新开始玩家回合
+        }
+
+        public void CheckPlayerStatus()
+        {
+            if (_playerPawn._health <= 0)
+            {
+                EndGame(false);
+            }
+        }
+
+        protected void EndGame(bool isVictory)
+        {
+
+        }
+
         /// <summary>
         /// 切换战斗状态
         /// </summary>
-        /// <param name="battleStage"></param>
-        public void SetBattleStage(BattleStage battleStage)
+        /// <param name="BattleState"></param>
+        public void SetBattleState(BattleState battleState, BattleSubState battleSubState)
         {
-            _battleStage = battleStage;
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, battleStage);
+            _battleState = battleState;
+            _battleSubState = battleSubState;
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, _battleState, _battleSubState);
+        }
+        public void SetSubBattleState(BattleSubState battleSubState)
+        {
+            _battleSubState = battleSubState;
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, _battleState, _battleSubState);
         }
         #endregion
 
@@ -295,33 +416,6 @@ namespace PDR
         }
 
         /// <summary>
-        /// 刷新地图事件
-        /// </summary>
-        /// <param name="LevelID"></param>
-        protected void RefreshBlockEvents(int LevelID)
-        {
-            // todo 根据levelID获取地块event配置，根据event配置生成
-            enemyPawns = new List<EnemyPawn>();
-            int enemyNum = 10;
-            List<int> randomIndexes = GetRandomIndexes(walkableBlocks.Count, enemyNum);
-            foreach (int index in randomIndexes)
-            {
-                if (enemyNum > 0)
-                {
-                    EnemyPawn enemyPawn = new EnemyPawn(walkableBlocks[index], GameObject.Instantiate(enemyGoTemplete, pawnGoRoot.transform), 100f, 10f, 15f, 100);
-                    enemyPawn.UpdatePawnLocation(GetBlockWorldLocationByGridLocation(walkableBlocks[index]), walkableBlocks[index]);
-                    UpdatePawnAnim(enemyPawn, "Idle");
-                    enemyPawns.Add(enemyPawn);
-                    enemyNum--;
-                }
-                else
-                {
-                    break;
-                }
-            }
-        }
-
-        /// <summary>
         /// 从集合中获取指定数量的不重复随机下标
         /// </summary>
         /// <param name="sourceCount">原集合的元素总数</param>
@@ -368,14 +462,49 @@ namespace PDR
             return gridData[position.x, position.y] != null &&
                    gridData[position.x, position.y]._type == BlockType.Walkable;
         }
-        
+
+        /// <summary>
+        /// 判断某位置是否能移动上去
+        /// </summary>
+        /// <param name="movePosition"></param>
+        /// <returns></returns>
+        public bool IsValidMovePosition(Vector2Int movePosition)
+        {
+            return gridData[movePosition.x, movePosition.y].pawn == null;
+        }
+
+        public List<BlockInfo> GetBlockInRange(BlockInfo sourceBlock, int range)
+        {
+            List<BlockInfo> result = new List<BlockInfo>();
+            Vector2Int sourcePos = new Vector2Int(sourceBlock._gridLocation.x, sourceBlock._gridLocation.y);
+
+            // 八方向遍历（包含斜对角）
+            for (int dx = -range; dx <= range; dx++)
+            {
+                for (int dy = -range; dy <= range; dy++)
+                {
+                    Vector2Int checkPos = new Vector2Int(
+                        sourcePos.x + dx,
+                        sourcePos.y + dy
+                    );
+
+                    // 使用现有验证方法检查位置有效性
+                    if (IsValidPosition(checkPos))
+                    {
+                        result.Add(gridData[checkPos.x, checkPos.y]);
+                    }
+                }
+            }
+            return result;
+        }
+
         /// <summary>
         /// 获取两点间的最短路径
         /// </summary>
         /// <param name="start"></param>
         /// <param name="end"></param>
         /// <returns></returns>
-        public List<Vector2Int> FindShortestPath(Vector2Int start, Vector2Int end)
+        public List<Vector2Int> FindShortestPath(Vector2Int start, Vector2Int end, bool eightDir = false)
         {
             // 边界检查
             if (!IsValidPosition(start) || !IsValidPosition(end))
@@ -395,6 +524,7 @@ namespace PDR
             // 初始化起点
             queue.Enqueue(start);
             visited[start.x, start.y] = true;
+            int maxNum = eightDir ? 8 : 4;
 
             // BFS核心逻辑
             while (queue.Count > 0)
@@ -408,11 +538,12 @@ namespace PDR
                 }
 
                 // 探索四个方向
-                foreach (Vector2Int dir in Directions)
+                for (int id = 0; id < maxNum; id++)
                 {
+                    Vector2Int dir = Directions[id];
                     Vector2Int newLoc = current + dir;
 
-                    if (IsValidPosition(newLoc) &&
+                    if (IsValidPosition(newLoc) && // IsValidMovePosition(newLoc) &&
                         !visited[newLoc.x, newLoc.y])
                     {
                         Vector2Int neighbor = newLoc;
@@ -464,7 +595,7 @@ namespace PDR
         /// <param name="sourceLoc"></param>
         private void OnDrawRoad(Vector2Int targetLoc, Vector2Int sourceLoc)
         {
-            if (_battleStage == BattleStage.UpdatingMove)
+            if (_battleSubState != BattleSubState.WaitingForAction)
             {
                 return;
             }
@@ -500,7 +631,7 @@ namespace PDR
         #region ------------------------------------------------------------------ PlayerInput ------------------------------------------------------------------
         private void HandlePlayerInput()
         {
-            if(ShouldHandlePlayerInput() && energy == 0)
+            if(ShouldHandlePlayerInput())
             {
                 HandleDiceInput();
             }
@@ -508,7 +639,7 @@ namespace PDR
 
         private bool ShouldHandlePlayerInput()
         {
-            return _battleStage == BattleStage.WaitingForAction;
+            return _battleState == BattleState.PlayerTurn && _battleSubState == BattleSubState.WaitingForAction;
         }
 
         private void HandleDiceInput()
@@ -537,14 +668,14 @@ namespace PDR
         /// <param name="blockGridLocation"></param>
         private void OnClickBlock(Vector2Int blockGridLocation)
         {
-            if(_battleStage != BattleStage.WaitingForAction)
+            if(_battleState != BattleState.PlayerTurn || _battleSubState != BattleSubState.WaitingForAction)
             {
                 return;
             }
 
             BlockInfo playerBlock = GetPawnBlock(_playerPawn);
             BlockInfo targetBlock = GetBlockByGridLocation(blockGridLocation);
-            if(IsAttackAction(targetBlock, playerBlock))
+            if(IsAttackAction(playerBlock, targetBlock))
             {
                 TryAttack(_playerPawn, targetBlock);
             }
@@ -565,9 +696,9 @@ namespace PDR
             }
 
             // 42随便写的
-            _playerPawn = new PlayerPawn(walkableBlocks[42], GameObject.Instantiate(playerGoTemplete, pawnGoRoot.transform), 100f, 10f, 15f, 100);
-            _playerPawn.UpdatePawnLocation(GetBlockWorldLocationByGridLocation(walkableBlocks[42]), walkableBlocks[42]);
-            UpdatePawnAnim(_playerPawn, "Idle");
+            BlockInfo block = gridData[walkableBlocks[42].x, walkableBlocks[42].y];
+            _playerPawn = new PlayerPawn(block, GameObject.Instantiate(playerGoTemplete, pawnGoRoot.transform), TeamType.Friend, 1, 1, 100f, 15f, 0, 100);
+            _playerPawn.PostInitialize();
         }
 
         #endregion
@@ -580,7 +711,25 @@ namespace PDR
         /// <param name="targetBlock"></param>
         private void TryAttack(MapPawn sourcePawn, BlockInfo targetBlock)
         {
+            sourcePawn._animControlComp.RegisterAttackContext(sourcePawn, targetBlock.pawn);
+            sourcePawn.PlayAnimation("Attack");
+        }
 
+        private void OnAttack(MapPawn sourceGo)
+        {
+            float actualDamage = _playerPawn.TakeDamage(sourceGo, sourceGo.GetAttackValue());
+            sourceGo.PlayAnimation("Idle");
+        }
+
+        private void OnAttack(MapPawn sourceGo, MapPawn targetGo)
+        {
+            float actualDamage = targetGo.TakeDamage(sourceGo, sourceGo.GetAttackValue());
+            sourceGo.PlayAnimation("Idle");
+            if(sourceGo == _playerPawn)
+            {
+                ModifyEnergy(-1);
+                CheckEnergy();
+            }
         }
 
         /// <summary>
@@ -590,6 +739,10 @@ namespace PDR
         /// <param name="targetBlock"></param>
         private void TryMovePawn(MapPawn sourcePawn, BlockInfo targetBlock)
         {
+            if(sourcePawn == null || targetBlock.pawn == sourcePawn)
+            {
+                return;
+            }
             BlockInfo sourceBlock = GetPawnBlock(sourcePawn);
             List<Vector2Int> pathList = FindShortestPath(sourceBlock._gridLocation, targetBlock._gridLocation);
             if (pathList.Count == 0 || pathList.Count - 1 > energy)
@@ -608,8 +761,9 @@ namespace PDR
                 }
             }
 
-            SetBattleStage(BattleStage.UpdatingMove);
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.MOVE_GO, (MapPawn)_playerPawn, safeBlocks);
+            sourceBlock.pawn = null;
+            SetSubBattleState(BattleSubState.UpdatingMove);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.MOVE_PLAYER, (MapPawn)_playerPawn, safeBlocks);
 
         }
 
@@ -618,7 +772,11 @@ namespace PDR
             UpdatePawnAnim(pawn, "Idle");
             BlockInfo currentBlock = GetBlockByGridLocation(pawn._gridPosition);
             currentBlock.OnStepOn();
-            SetBattleStage(BattleStage.WaitingForAction);
+            currentBlock.pawn = pawn;
+            if (pawn == _playerPawn)
+            {
+                CheckEnergy();
+            }
         }
 
         /// <summary>
@@ -629,7 +787,11 @@ namespace PDR
         /// <returns></returns>
         private bool NeedAttack(MapPawn source, MapPawn target)
         {
-            return false;
+            if(target == null || source == null)
+            {
+                return false;
+            }
+            return !source.IsSameTeam(target);
         }
 
         private void UpdatePawnAnim(MapPawn mapPawn, string animation, float crossFade = 0.2f)
@@ -656,7 +818,6 @@ namespace PDR
             });
         }
 
-
         protected void InitUI()
         {
             OpenBattleMainView();
@@ -669,10 +830,22 @@ namespace PDR
             ViewManager.Instance.Open(ViewType.BattleMainView);
         }
 
+        public void CheckEnergy()
+        {
+            if (energy <= 0)
+            {
+                StartMonsterTurn();
+            }
+            else
+            {
+                SetSubBattleState(BattleSubState.WaitingForAction);
+            }
+        }
+
         private void UpdateEnergy(int newEnergy = 0)
         {
             energy = newEnergy;
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, energy);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, energy); 
         }
 
         private void OnClearRoad()
@@ -724,7 +897,7 @@ namespace PDR
 
         private void BeginRolling()
         {
-            SetBattleStage(BattleStage.Rolling);
+            SetSubBattleState(BattleSubState.Rolling);
             rollEnd = Time.time + rollDuration;
             lastRollTime = Time.time;
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, false);
@@ -734,9 +907,8 @@ namespace PDR
         {
             rollEnd = 0.0f;
             lastRollTime = 0.0f;
-            SetBattleStage(BattleStage.WaitingForAction);
+            SetSubBattleState(BattleSubState.WaitingForAction);
         }
-
 
         public void ModifyEnergy(int value)
         {

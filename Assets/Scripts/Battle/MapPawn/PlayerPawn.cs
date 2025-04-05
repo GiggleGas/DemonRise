@@ -23,7 +23,8 @@ namespace PDR
 
         public List<SkillInfo> skillInfos;
 
-        public PlayerPawn(Vector2Int gridLoc, GameObject gameObject, float health, float attack, float defence, int upgradeExperience) : base(gridLoc, gameObject)
+        public PlayerPawn(BlockInfo block, GameObject gameObject, TeamType teamType, int moveRange, int attackRange, float health, float attack, float defence, int upgradeExperience) :
+            base(block, gameObject, teamType, moveRange, attackRange)
         {
             _health = health;
             _maxHealth = health;
@@ -32,6 +33,7 @@ namespace PDR
             _experience = 0;
             _upgradeExperience = upgradeExperience;
             _level = 1;
+            /*
             skillInfos = new List<SkillInfo>();
             skillInfos.Add(new SkillInfo()
             {
@@ -45,9 +47,10 @@ namespace PDR
                 value = defence,
                 spritePath = "defence"
             });
+            */
         }
 
-        public bool TryUpdate()
+        public bool TryUpGrade()
         {
             if(_experience < _upgradeExperience)
             {
@@ -55,6 +58,24 @@ namespace PDR
             }
             _experience -= _upgradeExperience;
             return true;
+        }
+
+        public override float TakeDamage(MapPawn damageSource, float damageValue)
+        {
+            _health -= damageValue;
+            UpdateGo();
+            return damageValue;
+        }
+
+        public override float GetAttackValue()
+        {
+            return _attack;
+        }
+
+        protected override void UpdateGo()
+        {
+            base.UpdateGo();
+            _pawnGo.UpdateStates(_health, _attack);
         }
     }
 }

@@ -14,8 +14,10 @@ namespace PDR
         // UI¿Ø¼þ
         private Button diceBtn;
         private Image diceImg;
+        private TextMeshProUGUI diceNum;
         private Button quitBtn;
-        private TextMeshProUGUI energyText;
+        private Image energyTens;
+        private Image energyOnes;
         private Slider healthBarSlider;
         private TextMeshProUGUI playerHealthTxt;
         private TextMeshProUGUI playerExperience;
@@ -27,7 +29,9 @@ namespace PDR
             diceBtn = transform.Find("diceBtn").GetComponent<Button>();
             quitBtn = transform.Find("quitBtn").GetComponent<Button>();
             diceImg = transform.Find("diceBtn").GetComponent<Image>();
-            energyText = transform.Find("energy").GetComponent<TextMeshProUGUI>();
+            diceNum = transform.Find("diceBtn/diceNum").GetComponent<TextMeshProUGUI>();
+            energyTens = transform.Find("energy/tens").GetComponent<Image>();
+            energyOnes = transform.Find("energy/ones").GetComponent<Image>();
             healthBarSlider = transform.Find("playerState/health").GetComponent<Slider>();
             playerHealthTxt = transform.Find("playerState/health/healthTxt").GetComponent<TextMeshProUGUI>();
             playerExperience = transform.Find("playerState/goldenBG/playerExperience").GetComponent<TextMeshProUGUI>();
@@ -68,7 +72,10 @@ namespace PDR
 
         public void UpdateEnergy(int energy)
         {
-            energyText.text = energy.ToString();
+            int tenNum = energy / 10;
+            int oneNum = energy % 10;
+            energyTens.sprite = BattleManager.Instance.GetGameEntry().numSprites[tenNum];
+            energyOnes.sprite = BattleManager.Instance.GetGameEntry().numSprites[oneNum];
         }
 
         public void UpdatePlayerState(PlayerPawn player)

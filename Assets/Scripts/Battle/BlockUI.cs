@@ -28,10 +28,6 @@ namespace PDR
 
         public void OnStepOn()
         {
-            if(pawn != null)
-            {
-                GameObject.Destroy(pawn._gameObject);
-            }
         }
 
         public void OnStepOff()

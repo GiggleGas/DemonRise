@@ -15,6 +15,7 @@ public class GameEntry : MonoBehaviour
     }
 
     public spriteStruct[] sweetPrefabs;
+    public Sprite[] numSprites;
     public Dictionary<string, Sprite> spriteConfig;
 
     public GameObject blockUIPrefab;

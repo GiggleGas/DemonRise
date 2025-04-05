@@ -45,10 +45,15 @@ namespace PDR
         public const int CLEAR_ROAD = 204;
         public const int BLOCK_MOUSE_DOWN = 205;
         public const int BLOCK_MOUSE_UP = 206;
-        public const int MOVE_GO = 207;
-        public const int MOVE_FINISH = 208;
-        public const int ATTACK_ENEMY = 209;
-        public const int ATTACK_FINISH = 210;
+
+        public const int MOVE_PLAYER = 207;
+        public const int MOVE_AI = 208;
+        public const int PLAYER_MOVE_FINISH = 209;
+
+        public const int PLAYER_ATTACK_FINISH = 210;
+        public const int AI_ATTACK_FINISH = 211;
+
+        public const int AI_TURN_FINISH = 212;
 
     }
 }
