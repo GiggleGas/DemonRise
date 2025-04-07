@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -11,17 +11,18 @@ namespace PDR
 { 
     public class BattleMainView : BaseView
     {
-        // UI�ؼ�
+        // UI控件
         private Button diceBtn;
         private Image diceImg;
-        private TextMeshProUGUI diceNum;
+        private TextMeshProUGUI diceNumTxt;
         private Button quitBtn;
         private Image energyTens;
         private Image energyOnes;
-        private Slider healthBarSlider;
-        private TextMeshProUGUI playerHealthTxt;
-        private TextMeshProUGUI playerExperience;
-        private TextMeshProUGUI playerLevel;
+        private GameObject endGame;
+        //private Slider healthBarSlider;
+        //private TextMeshProUGUI playerHealthTxt;
+        //private TextMeshProUGUI playerExperience;
+        //private TextMeshProUGUI playerLevel;
 
         protected override void OnAwake()
         {
@@ -29,13 +30,14 @@ namespace PDR
             diceBtn = transform.Find("diceBtn").GetComponent<Button>();
             quitBtn = transform.Find("quitBtn").GetComponent<Button>();
             diceImg = transform.Find("diceBtn").GetComponent<Image>();
-            diceNum = transform.Find("diceBtn/diceNum").GetComponent<TextMeshProUGUI>();
+            diceNumTxt = transform.Find("diceBtn/diceNum").GetComponent<TextMeshProUGUI>();
             energyTens = transform.Find("energy/tens").GetComponent<Image>();
             energyOnes = transform.Find("energy/ones").GetComponent<Image>();
-            healthBarSlider = transform.Find("playerState/health").GetComponent<Slider>();
-            playerHealthTxt = transform.Find("playerState/health/healthTxt").GetComponent<TextMeshProUGUI>();
-            playerExperience = transform.Find("playerState/goldenBG/playerExperience").GetComponent<TextMeshProUGUI>();
-            playerLevel = transform.Find("playerState/playerIcon/playerLevel").GetComponent<TextMeshProUGUI>();
+            endGame = transform.Find("EndGame").gameObject;
+            //healthBarSlider = transform.Find("playerState/health").GetComponent<Slider>();
+            //playerHealthTxt = transform.Find("playerState/health/healthTxt").GetComponent<TextMeshProUGUI>();
+            //playerExperience = transform.Find("playerState/goldenBG/playerExperience").GetComponent<TextMeshProUGUI>();
+            //playerLevel = transform.Find("playerState/playerIcon/playerLevel").GetComponent<TextMeshProUGUI>();
 
             diceBtn.onClick.AddListener(OnClickDiceBtn);
             quitBtn.onClick.AddListener(OnClickQuitBtn);
@@ -46,13 +48,15 @@ namespace PDR
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_SPRITE, ChangeDiceBtnSprite);
             EventMgr.Instance.Register<bool>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, ChangeDiceBtnState);
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, UpdateEnergy);
+            EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_DICE_NUM, UpdateDiceNum);
+            EventMgr.Instance.Register<bool>(EventType.EVENT_BATTLE_UI, SubEventType.END_GAME, ShowGameEnd);
             EventMgr.Instance.Register<PlayerPawn>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_PLAYER_PAWN, UpdatePlayerState);
         }
 
         private void OnClickDiceBtn()
         {
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.ROLL_THE_DICE);
-            diceBtn.enabled = false;
+            ChangeDiceBtnState(false);
         }
 
         private void ChangeDiceBtnSprite(int diceSpriteID)
@@ -65,9 +69,13 @@ namespace PDR
             diceBtn.enabled = bValue;
         }
 
-        private void OnClickQuitBtn() 
+        private void OnClickQuitBtn()
         {
-            // todo
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
 
         public void UpdateEnergy(int energy)
@@ -78,12 +86,24 @@ namespace PDR
             energyOnes.sprite = BattleManager.Instance.GetGameEntry().numSprites[oneNum];
         }
 
+        public void UpdateDiceNum(int diceNum)
+        {
+            diceNumTxt.text = "Remain Times: " + diceNum.ToString();
+        }
+
+        public void ShowGameEnd(bool isVictory)
+        {
+            string textToShow = isVictory ? "Victory" : "Wasted";
+            endGame.SetActive(true);
+            endGame.GetComponent<TextMeshProUGUI>().text = textToShow;
+        }
+
         public void UpdatePlayerState(PlayerPawn player)
         {
-            healthBarSlider.value = player._health / player._maxHealth;
-            playerHealthTxt.text = player._health.ToString() + " " + player._maxHealth.ToString();
-            playerExperience.text = player._experience.ToString();
-            playerLevel.text = player._level.ToString();
+            //healthBarSlider.value = player._health / player._maxHealth;
+            //playerHealthTxt.text = player._health.ToString() + " " + player._maxHealth.ToString();
+            //playerExperience.text = player._experience.ToString();
+            //playerLevel.text = player._level.ToString();
         }
     }
 }

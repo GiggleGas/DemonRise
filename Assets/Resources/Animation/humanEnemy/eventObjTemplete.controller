@@ -138,7 +138,7 @@ AnimatorStateMachine:
   m_ChildStates:
   - serializedVersion: 1
     m_State: {fileID: -4113166642150521554}
-    m_Position: {x: 260, y: 120, z: 0}
+    m_Position: {x: 280, y: 110, z: 0}
   - serializedVersion: 1
     m_State: {fileID: -8476365587907941417}
     m_Position: {x: 300, y: 190, z: 0}
@@ -148,6 +148,9 @@ AnimatorStateMachine:
   - serializedVersion: 1
     m_State: {fileID: -7357981098514713945}
     m_Position: {x: 370, y: 320, z: 0}
+  - serializedVersion: 1
+    m_State: {fileID: 7053114407911595835}
+    m_Position: {x: 410, y: 380, z: 0}
   m_ChildStateMachines: []
   m_AnyStateTransitions: []
   m_EntryTransitions: []
@@ -158,6 +161,32 @@ AnimatorStateMachine:
   m_ExitPosition: {x: 800, y: 120, z: 0}
   m_ParentStateMachinePosition: {x: 800, y: 20, z: 0}
   m_DefaultState: {fileID: -4113166642150521554}
+--- !u!1102 &7053114407911595835
+AnimatorState:
+  serializedVersion: 6
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Idle
+  m_Speed: 1
+  m_CycleOffset: 0
+  m_Transitions: []
+  m_StateMachineBehaviours: []
+  m_Position: {x: 50, y: 50, z: 0}
+  m_IKOnFeet: 0
+  m_WriteDefaultValues: 1
+  m_Mirror: 0
+  m_SpeedParameterActive: 0
+  m_MirrorParameterActive: 0
+  m_CycleOffsetParameterActive: 0
+  m_TimeParameterActive: 0
+  m_Motion: {fileID: 7400000, guid: 4a3cdd54392d2df429f609ab9160251a, type: 2}
+  m_Tag: 
+  m_SpeedParameter: 
+  m_MirrorParameter: 
+  m_CycleOffsetParameter: 
+  m_TimeParameter: 
 --- !u!114 &8422494364550880322
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -170,4 +199,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 018e1abbe171bdc4aa1b9ba829e08d8b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  animation: 
+  animation: Idle

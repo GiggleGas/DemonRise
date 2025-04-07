@@ -1,4 +1,3 @@
-using Microsoft.Unity.VisualStudio.Editor;
 using ppCore.Manager;
 using Stateless;
 using System;
@@ -35,11 +34,12 @@ namespace PDR
         PlayerTurn,
         MonsterTurn,
         Victory,
-        Defeat
+        Defea
     }
 
     public enum BattleSubState
     {
+        None,
         // playerTurn
         WaitingForAction,
         Rolling,
@@ -100,6 +100,7 @@ namespace PDR
         public BlockInfo[,] gridData; // 二维数组存储数据
         private List<Vector2Int> walkableBlocks = new List<Vector2Int>(); // 可移动区域缓存
         private List<Vector2Int> currentShowPath = new List<Vector2Int>(); // 当前为显示UI的格子
+        private List<Vector2Int> currentWarningBlocks = new List<Vector2Int>(); // 当前预警格子
         public List<EnemyPawn> enemyPawns; // 地图上所有敌方信息
         public PlayerPawn _playerPawn; // 玩家Pawn
 
@@ -122,6 +123,7 @@ namespace PDR
             EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_MOVE_FINISH, OnPawnStopMove);
             EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.AI_ATTACK_FINISH, OnAttack);
             EventMgr.Instance.Register<MapPawn, MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_ATTACK_FINISH, OnAttack);
+            EventMgr.Instance.Register<MapPawn, string>(EventType.EVENT_BATTLE_UI, SubEventType.ANIM_FINISH, OnAnimFinish);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.AI_TURN_FINISH, OnEnemyMoveFinish);
 
             diceSprites = new Sprite[6];
@@ -143,7 +145,7 @@ namespace PDR
             _AIMoveComp.RegisterEvents();
 
             currentLevel = 0;
-            maxLevel = 3;
+            maxLevel = 0;
 
             InitMap();
             InitPlayer();
@@ -176,7 +178,7 @@ namespace PDR
         {
             // todo 读配置
             RefreshBlockEvents(level);
-            UpdateDiceNum();
+            ModifyDiceNum(dicePerLevel);
         }
 
         /// <summary>
@@ -186,9 +188,11 @@ namespace PDR
         protected void RefreshBlockEvents(int level)
         {
             // todo 根据levelID获取地块event配置，根据event配置生成
+            int[] enemyLocations = { 7, 10, 34, 37};
             enemyPawns = new List<EnemyPawn>();
-            int enemyNum = 3;
-            List<int> randomIndexes = GetRandomIndexes(walkableBlocks.Count, enemyNum);
+            int enemyNum = 5;
+            //List<int> randomIndexes = GetRandomIndexes(walkableBlocks.Count, enemyNum);
+            List<int> randomIndexes = new List<int>(){ 7, 10, 34, 37 };
             foreach (int index in randomIndexes)
             {
                 if (enemyNum > 0)
@@ -206,9 +210,15 @@ namespace PDR
             }
         }
 
-        protected void UpdateDiceNum()
+        protected void ModifyDiceNum(int deltaNum)
         {
-            remainingDice += dicePerLevel;
+            UpdateDiceNum(remainingDice + deltaNum);
+        }
+
+        protected void UpdateDiceNum(int newNum)
+        {
+            remainingDice = newNum;
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_DICE_NUM, remainingDice);
         }
 
         /// <summary>
@@ -226,6 +236,20 @@ namespace PDR
         void StartMonsterTurn()
         {
             SetBattleState(BattleState.MonsterTurn, BattleSubState.UpdatingMove);
+            foreach (Vector2Int warningBlock in currentWarningBlocks)
+            {
+                GetBlockByGridLocation(warningBlock).blockUI.ShowWarning(false);
+            }
+            currentWarningBlocks.Clear();
+            for (int i = 0; i < enemyPawns.Count; ++i)
+            {
+                if (enemyPawns[i].IsValid == false)
+                {
+                    enemyPawns[i].DestroySelf();
+                    enemyPawns.RemoveAt(i);
+                    i--;
+                }
+            }
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.MOVE_AI);
         }
 
@@ -274,7 +298,12 @@ namespace PDR
         /// <param name="monster"></param>
         public void OnMonsterDefeated(EnemyPawn enemy)
         {
-            enemyPawns.Remove(enemy);
+            if(enemy == null)
+            {
+                return;
+            }
+            enemy.IsValid = false;
+            enemy.DestroySelf();
             if (enemyPawns.Count == 0)
             {
                 if (currentLevel >= maxLevel)
@@ -305,7 +334,8 @@ namespace PDR
 
         protected void EndGame(bool isVictory)
         {
-
+            SetBattleState(BattleState.Victory, BattleSubState.None);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.END_GAME, isVictory);
         }
 
         /// <summary>
@@ -314,14 +344,56 @@ namespace PDR
         /// <param name="BattleState"></param>
         public void SetBattleState(BattleState battleState, BattleSubState battleSubState)
         {
+            if (_battleState == BattleState.Victory)
+            {
+                return;
+            }
             _battleState = battleState;
             _battleSubState = battleSubState;
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, _battleState, _battleSubState);
         }
         public void SetSubBattleState(BattleSubState battleSubState)
         {
+            if(_battleState == BattleState.Victory)
+            {
+                return;
+            }
             _battleSubState = battleSubState;
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, _battleState, _battleSubState);
+            if(_battleSubState == BattleSubState.WaitingForAction)
+            {
+                UpdateWarningArea();
+            }
+        }
+
+        private void UpdateWarningArea()
+        {
+            foreach (Vector2Int warningBlock in currentWarningBlocks)
+            {
+                GetBlockByGridLocation(warningBlock).blockUI.ShowWarning(false);
+            }
+            currentWarningBlocks.Clear();
+            foreach (EnemyPawn enemyPawn in enemyPawns)
+            {
+                if (enemyPawn.IsValid == false)
+                {
+                    continue;
+                }
+                if (CanAIAttack(enemyPawn))
+                {
+                    GetBlockByGridLocation(_playerPawn._gridPosition).blockUI.ShowWarning(true);
+                    currentWarningBlocks.Add(_playerPawn._gridPosition);
+                }
+                else
+                {
+                    List<Vector2Int> path = FindShortestPath(enemyPawn._gridPosition, _playerPawn._gridPosition);
+                    if(path.Count >= 2)
+                    {
+                        GetBlockByGridLocation(path[1]).blockUI.ShowWarning(true);
+                        currentWarningBlocks.Add(path[1]);
+                    }
+                }
+            }
         }
         #endregion
 
@@ -543,9 +615,13 @@ namespace PDR
                     Vector2Int dir = Directions[id];
                     Vector2Int newLoc = current + dir;
 
-                    if (IsValidPosition(newLoc) && // IsValidMovePosition(newLoc) &&
+                    if (IsValidPosition(newLoc) &&
                         !visited[newLoc.x, newLoc.y])
                     {
+                        if (newLoc != end && !IsValidMovePosition(newLoc)) 
+                        {
+                            continue;
+                        }
                         Vector2Int neighbor = newLoc;
                         visited[newLoc.x, newLoc.y] = true;
                         parentMap[neighbor] = current;
@@ -696,8 +772,8 @@ namespace PDR
             }
 
             // 42随便写的
-            BlockInfo block = gridData[walkableBlocks[42].x, walkableBlocks[42].y];
-            _playerPawn = new PlayerPawn(block, GameObject.Instantiate(playerGoTemplete, pawnGoRoot.transform), TeamType.Friend, 1, 1, 100f, 15f, 0, 100);
+            BlockInfo block = gridData[walkableBlocks[20].x, walkableBlocks[20].y];
+            _playerPawn = new PlayerPawn(block, GameObject.Instantiate(playerGoTemplete, pawnGoRoot.transform), TeamType.Friend, 1, 1, 70f, 15f, 0, 100);
             _playerPawn.PostInitialize();
         }
 
@@ -711,7 +787,7 @@ namespace PDR
         /// <param name="targetBlock"></param>
         private void TryAttack(MapPawn sourcePawn, BlockInfo targetBlock)
         {
-            sourcePawn._animControlComp.RegisterAttackContext(sourcePawn, targetBlock.pawn);
+            sourcePawn._animControlComp.RegisterAttackContext(targetBlock.pawn);
             sourcePawn.PlayAnimation("Attack");
         }
 
@@ -719,16 +795,30 @@ namespace PDR
         {
             float actualDamage = _playerPawn.TakeDamage(sourceGo, sourceGo.GetAttackValue());
             sourceGo.PlayAnimation("Idle");
+            CheckPlayerStatus();
         }
 
         private void OnAttack(MapPawn sourceGo, MapPawn targetGo)
         {
             float actualDamage = targetGo.TakeDamage(sourceGo, sourceGo.GetAttackValue());
+            EnemyPawn enemy = targetGo as EnemyPawn;
+            if (enemy != null && enemy._health <= 0)
+            {
+                enemy._animControlComp.ChangeDuringAnimation("Dead", 0.2f, 1.0f);
+            }
             sourceGo.PlayAnimation("Idle");
             if(sourceGo == _playerPawn)
             {
                 ModifyEnergy(-1);
                 CheckEnergy();
+            }
+        }
+
+        private void OnAnimFinish(MapPawn sourcePawn, string animation) 
+        {
+            if(animation == "Dead")
+            {
+                OnMonsterDefeated(sourcePawn as EnemyPawn);
             }
         }
 
@@ -867,12 +957,11 @@ namespace PDR
             {
                 case DiceStateChange.Restart:
                     ResetDiceState();
-                    EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, true);
                     break;
                 case DiceStateChange.GetResult:
                     ResetDiceState();
                     EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_SPRITE, randomIndex);
-                    UpdateEnergy(randomIndex + 1);
+                    ModifyEnergy(randomIndex + 1);
                     break;
                 case DiceStateChange.Change:
                     EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_SPRITE, randomIndex);
@@ -897,6 +986,12 @@ namespace PDR
 
         private void BeginRolling()
         {
+            if (remainingDice <= 0)
+            {
+                return;
+            }
+            ModifyDiceNum(-1);
+            ModifyEnergy(-1);
             SetSubBattleState(BattleSubState.Rolling);
             rollEnd = Time.time + rollDuration;
             lastRollTime = Time.time;
@@ -908,6 +1003,7 @@ namespace PDR
             rollEnd = 0.0f;
             lastRollTime = 0.0f;
             SetSubBattleState(BattleSubState.WaitingForAction);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, true);
         }
 
         public void ModifyEnergy(int value)

@@ -16,6 +16,7 @@ namespace PDR
         public int _moveRange;
         public int _attackRange;
         public PawnGo _pawnGo;
+        public bool IsValid;
 
         public MapPawn(BlockInfo block, GameObject gameObject, TeamType teamType, int moveRange, int attackRange)
         {
@@ -23,10 +24,13 @@ namespace PDR
             _gameObject.GetComponent<Transform>().position = block._worldlocation;
             _gridPosition = block._gridLocation;
             _animControlComp = _gameObject.AddComponent<AnimControlComp>();
+            _animControlComp.SetSourcePawn(this);
             _teamType = teamType;
             _pawnGo = _gameObject.GetComponent<PawnGo>();
             _moveRange = moveRange;
             _attackRange = attackRange;
+            block.pawn = this;
+            IsValid = true;
         }
 
         public virtual void PostInitialize()
@@ -50,6 +54,11 @@ namespace PDR
             _animControlComp.ChangeAnimation(animation, crossFade, time);
         }
 
+        public void PlayDuringAnimation(string animation, float time = 1.0f, float crossFade = 0.2f)
+        {
+            _animControlComp.ChangeDuringAnimation(animation, time, crossFade);
+        }
+
         public void UpdateTeamType(TeamType teamType)
         {
             _teamType = teamType;
@@ -68,6 +77,13 @@ namespace PDR
         public virtual float GetAttackValue()
         {
             return 0.0f;
+        }
+
+        public void DestroySelf()
+        {
+            // todo 对象池
+            BattleManager.Instance.GetBlockByGridLocation(_gridPosition).pawn = null;
+            _gameObject.SetActive(false);
         }
 
         // 更新UI

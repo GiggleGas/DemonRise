@@ -41,11 +41,15 @@ namespace PDR
         private Vector2Int _gridLocation;
         private GameObject _selected;
         private GameObject _path;
+        private GameObject _range;
+        private GameObject _warning; 
 
         private void Awake()
         {
             _selected = transform.Find("selected").gameObject;
             _path = transform.Find("path").gameObject;
+            _range = transform.Find("range").gameObject;
+            _warning = transform.Find("warning").gameObject;
         }
 
         private void OnMouseOver()
@@ -73,6 +77,16 @@ namespace PDR
         public void ShowPath(bool value)
         {
             _path.SetActive(value);
+        }
+
+        public void ShowRange(bool value)
+        {
+            _range.SetActive(value);
+        }
+
+        public void ShowWarning(bool value)
+        {
+            _warning.SetActive(value);
         }
     }
 

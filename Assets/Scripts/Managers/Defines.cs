@@ -28,6 +28,7 @@ namespace PDR
         // EVENT_BATTLE
         public const int GET_PLAYER_INPUT = 1;
         public const int GET_DICE_RESULT = 2;
+        public const int END_GAME = 3;
 
         // EVENT_BATTLE_UI
         public const int UPDATE_GAME_STAGE = 101;
@@ -38,6 +39,8 @@ namespace PDR
         public const int UPDATE_PLAYER_PAWN = 106;
         public const int ENTER_GAMBLING = 107;
         public const int UPDATE_GAMBLING_PLAYER_VIEW = 108;
+        public const int ANIM_FINISH = 109;
+        public const int UPDATE_DICE_NUM = 110;
 
         public const int ROLL_THE_DICE = 201; // view -> mgr
         public const int GAMBLING_VIEW_FINISH_LOAD = 202;

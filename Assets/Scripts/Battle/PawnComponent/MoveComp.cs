@@ -96,6 +96,7 @@ namespace PDR
             // 遍历所有怪物执行行动
             foreach (MapPawn monster in BattleManager.Instance.enemyPawns)
             {
+                if (monster == null) continue;
                 if (BattleManager.Instance.CanAIAttack(monster))
                 {
                     // 触发攻击动画
@@ -157,22 +158,26 @@ namespace PDR
     public class AnimControlComp : MonoBehaviour
     {
         private Animator animator;
+        private MapPawn _sourcePawn;
 
-        private MapPawn _targetGo;
-        private MapPawn _sourceGo;
+        private MapPawn _targetPawn;
 
         protected void Awake()
         {
             animator = GetComponent<Animator>();
         }
 
-        public void RegisterAttackContext(MapPawn sourceGo, MapPawn targetGo)
+        public void SetSourcePawn(MapPawn sourcePawn)
         {
-            _targetGo = targetGo;
-            _sourceGo = sourceGo;
+            _sourcePawn = sourcePawn;
         }
 
-        public void ChangeAnimation(string animation, float crossFade = 0.2f, float time = 0)
+        public void RegisterAttackContext(MapPawn targetPawn)
+        {
+            _targetPawn = targetPawn;
+        }
+
+        public void ChangeAnimation(string animation, float crossFade = 0.2f, float time = 0.0f)
         {
             if(time >0)
             {
@@ -197,7 +202,31 @@ namespace PDR
             void EndAnimation()
             {
                 animator.CrossFade(animation, crossFade);
-                EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_ATTACK_FINISH, _sourceGo, _targetGo);
+                EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_ATTACK_FINISH, _sourcePawn, _targetPawn);
+            }
+        }
+
+        /// <summary>
+        /// 先修改到animation，time时间后修改到afterAnim同时触发通知，类似攻击动画播完调回原来动画，同时发出通知
+        /// </summary>
+        /// <param name="animation"></param>
+        /// <param name="afterAnim"></param>
+        /// <param name="time"></param>
+        /// <param name="crossFade"></param>
+        public void ChangeDuringAnimation(string animation, float time = 1.0f, float crossFade = 0.2f)
+        {
+            animator.CrossFade(animation, crossFade);
+            StartCoroutine(Wait());
+
+            IEnumerator Wait()
+            {
+                yield return new WaitForSeconds(time - crossFade);
+                EndAnimation();
+            }
+
+            void EndAnimation()
+            {
+                EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.ANIM_FINISH, _sourcePawn, animation);
             }
         }
     }
