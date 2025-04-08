@@ -11,6 +11,7 @@ namespace PDR
         public float _health;
         public float _maxHealth;
         public float _attack;
+        public float _defence;
         public int _experience;
 
         public EnemyPawn(BlockInfo block, GameObject gameObject, TeamType teamType, int moveRange, int attackRange, float health, float maxHealth, float attack, int exp) : 
@@ -37,7 +38,7 @@ namespace PDR
         protected override void UpdateGo()
         {
             base.UpdateGo();
-            _pawnGo.UpdateStates(_health, _attack);
+            _pawnGo.UpdateStates(_health, _attack, _defence);
         }
 
         public bool CanAttack()

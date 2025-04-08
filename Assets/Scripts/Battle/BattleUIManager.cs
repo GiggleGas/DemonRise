@@ -40,8 +40,9 @@ namespace PDR
     public enum BattleSubState
     {
         None,
-        // playerTurn
-        WaitingForAction,
+        WaitingForPlayCard,
+        HoldingCard,
+        WaitingForMove,
         Rolling,
 
         UpdatingMove,
@@ -113,7 +114,10 @@ namespace PDR
         // card
         public CardContainer playerCards;
         public int handMaxNum;
-        public CardBase currentChooseCard;
+        public CardBase currentChooseCard; 
+        private List<Vector2Int> currentCardValidBlocks = new List<Vector2Int>(); // 当前卡牌可用范围
+        public BlockInfo pickedBlock; // 技能点击释放block
+
 
         public void OnAwake()
         {
@@ -130,6 +134,9 @@ namespace PDR
             EventMgr.Instance.Register<MapPawn, MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_ATTACK_FINISH, OnAttack);
             EventMgr.Instance.Register<MapPawn, string>(EventType.EVENT_BATTLE_UI, SubEventType.ANIM_FINISH, OnAnimFinish);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.AI_TURN_FINISH, OnEnemyMoveFinish);
+            EventMgr.Instance.Register<CardBase>(EventType.EVENT_BATTLE_UI, SubEventType.CLICK_CARD, OnSelectCard);
+            EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.CARD_USE_FINISH, OnCardSkillFinish);
+            EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.CARD_TO_ENERGY, OnCardToEnergy);
 
             diceSprites = new Sprite[6];
             for (int i = 0; i < 6; i++)
@@ -233,8 +240,9 @@ namespace PDR
         /// </summary>
         void StartPlayerTurn()
         {
-            SetBattleState(BattleState.PlayerTurn, BattleSubState.WaitingForAction);
+            SetBattleState(BattleState.PlayerTurn, BattleSubState.WaitingForPlayCard);
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_HAND_DECK, playerCards.DrawCards(handMaxNum));
+            // UpdateWarningArea();
         }
 
         /// <summary>
@@ -359,19 +367,6 @@ namespace PDR
             _battleSubState = battleSubState;
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, _battleState, _battleSubState);
         }
-        public void SetSubBattleState(BattleSubState battleSubState)
-        {
-            if(_battleState == BattleState.Victory)
-            {
-                return;
-            }
-            _battleSubState = battleSubState;
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, _battleState, _battleSubState);
-            if(_battleSubState == BattleSubState.WaitingForAction)
-            {
-                UpdateWarningArea();
-            }
-        }
 
         private void UpdateWarningArea()
         {
@@ -411,17 +406,87 @@ namespace PDR
             playerCards = new CardContainer();
             List<CardBase> cardBases = new List<CardBase>()
             {
-                new AttackCard(1001, 1, 1),
-                new AttackCard(1001, 1, 1),
-                new AttackCard(1001, 1, 1),
-                new AttackCard(1001, 1, 1),
-                new AttackCard(1001, 1, 1),
-                new FastMoveCard(1002, 2),
-                new FastMoveCard(1002, 2),
-                new FastMoveCard(1002, 2),
-                new FastMoveCard(1002, 2),
+                new FastMoveCard(1001, 2, 0),
+                new FastMoveCard(1001, 3, 0),
+                new FastMoveCard(1001, 4, 0),
+                new FastMoveCard(1001, 5, 0),
+                new AttackCard(1002, 2, 1, 2.0f),
+                new AttackCard(1002, 2, 1, 2.0f),
+                new AttackCard(1002, 5, 1, 5.0f),
+                new DefenceCard(1003, 1, 0, 10.0f),
+                new DefenceCard(1003, 3, 0, 20.0f),
+                new DefenceCard(1003, 2, 0, 15.0f),
+                new DefenceCard(1003, 1, 0, 10.0f)
             };
             playerCards.InitializeDeck(cardBases);
+        }
+
+        public void OnSelectCard(CardBase card)
+        {
+            ClearSelectCard();
+            currentChooseCard = card;
+            List<List<Vector2Int>> ranges = GetReachablePositions(_playerPawn._gridPosition, card._range);
+            for (int i = 0; i <= card._range; ++i) 
+            {
+                foreach(var rangePos in ranges[i])
+                {
+                    currentCardValidBlocks.Add(rangePos);
+                }
+            }
+
+            foreach(var blockLoc in currentCardValidBlocks)
+            {
+                GetBlockByGridLocation(blockLoc).blockUI.ShowRange(true);
+            }
+            SetBattleState(BattleState.PlayerTurn, BattleSubState.HoldingCard);
+        }
+
+        public void ConsumCard(bool bEnergy)
+        {
+            if(currentChooseCard == null)
+            {
+                Debug.LogError("没有任何card可以释放！");
+                return;
+            }
+            currentChooseCard.Consume(bEnergy);
+            ClearSelectCard();
+            EventMgr.Instance.Dispatch<int>(EventType.EVENT_BATTLE_UI, SubEventType.HIDE_USED_CARD, currentChooseCard._id);
+        }
+
+        public void OnCardToEnergy()
+        {
+            if (!ShouldHandlePlayerInput())
+            {
+                return;
+            }
+
+            if (currentChooseCard != null && _battleSubState == BattleSubState.HoldingCard)
+            {
+                ConsumCard(true);
+            }
+
+        }
+
+        public void OnCardSkillFinish()
+        {
+            if(_battleState == BattleState.PlayerTurn && _battleSubState == BattleSubState.HoldingCard)
+            {
+                CheckEnergy();
+            }
+        }
+
+        public void ClearSelectCard()
+        {
+            if(currentChooseCard != null)
+            {
+                EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CANCEAL_SELECT_CARD, currentChooseCard._id);
+            }
+
+            foreach (var blockLoc in currentCardValidBlocks)
+            {
+                GetBlockByGridLocation(blockLoc).blockUI.ShowRange(false);
+            }
+            currentCardValidBlocks.Clear();
         }
 
         #endregion
@@ -701,7 +766,7 @@ namespace PDR
         /// <param name="sourceLoc"></param>
         private void OnDrawRoad(Vector2Int targetLoc, Vector2Int sourceLoc)
         {
-            if (_battleSubState != BattleSubState.WaitingForAction)
+            if (_battleSubState != BattleSubState.WaitingForMove)
             {
                 return;
             }
@@ -732,6 +797,76 @@ namespace PDR
             return (deltaX == 1 && deltaY == 0) ||
                    (deltaY == 1 && deltaX == 0);
         }
+
+        /// <summary>
+        /// 获取从起点出发0-N步内可达的位置集合
+        /// </summary>
+        /// <param name="start">起始坐标</param>
+        /// <param name="maxSteps">最大步数</param>
+        // <returns>按步数分组的可达位置列表</returns>
+        public List<List<Vector2Int>> GetReachablePositions(Vector2Int start, int maxSteps)
+        {
+            List<List<Vector2Int>> result = new List<List<Vector2Int>>();
+
+            // 参数验证
+            if (!IsValidPosition(start) || maxSteps < 0)
+            {
+                Debug.LogError("非法输入参数");
+                return result;
+            }
+
+            // 初始化数据结构
+            Queue<Vector2Int> queue = new Queue<Vector2Int>();
+            HashSet<Vector2Int> visited = new HashSet<Vector2Int>();
+            Dictionary<Vector2Int, int> stepCount = new Dictionary<Vector2Int, int>();
+
+            // 初始化起点
+            queue.Enqueue(start);
+            visited.Add(start);
+            stepCount[start] = 0;
+
+            // BFS遍历
+            while (queue.Count > 0)
+            {
+                Vector2Int current = queue.Dequeue();
+                int currentSteps = stepCount[current];
+
+                // 如果当前层未初始化则创建新列表
+                while (result.Count <= currentSteps)
+                {
+                    result.Add(new List<Vector2Int>());
+                }
+                result[currentSteps].Add(current);
+
+                // 达到最大步数时停止扩展
+                if (currentSteps >= maxSteps) continue;
+
+                // 探索四个方向
+                for (int id = 0; id < 4; id++)
+                {
+                    Vector2Int dir = Directions[id];
+                    Vector2Int neighbor = current + dir;
+
+                    if (IsValidPosition(neighbor) &&
+                       !visited.Contains(neighbor))
+                    {
+                        visited.Add(neighbor);
+                        stepCount[neighbor] = currentSteps + 1;
+                        queue.Enqueue(neighbor);
+                    }
+                }
+            }
+
+            // 确保返回列表长度符合要求
+            while (result.Count < maxSteps + 1)
+            {
+                result.Add(new List<Vector2Int>());
+            }
+
+            return result;
+        }
+
+
         #endregion
 
         #region ------------------------------------------------------------------ PlayerInput ------------------------------------------------------------------
@@ -745,7 +880,7 @@ namespace PDR
 
         private bool ShouldHandlePlayerInput()
         {
-            return _battleState == BattleState.PlayerTurn && _battleSubState == BattleSubState.WaitingForAction;
+            return _battleState == BattleState.PlayerTurn && (_battleSubState == BattleSubState.WaitingForPlayCard || _battleSubState == BattleSubState.WaitingForMove || _battleSubState == BattleSubState.HoldingCard);
         }
 
         private void HandleDiceInput()
@@ -774,20 +909,31 @@ namespace PDR
         /// <param name="blockGridLocation"></param>
         private void OnClickBlock(Vector2Int blockGridLocation)
         {
-            if(_battleState != BattleState.PlayerTurn || _battleSubState != BattleSubState.WaitingForAction)
+            if(!ShouldHandlePlayerInput())
             {
                 return;
             }
 
             BlockInfo playerBlock = GetPawnBlock(_playerPawn);
             BlockInfo targetBlock = GetBlockByGridLocation(blockGridLocation);
-            if(IsAttackAction(playerBlock, targetBlock))
+            if(currentChooseCard != null && _battleSubState == BattleSubState.HoldingCard)
             {
-                TryAttack(_playerPawn, targetBlock);
+                if(currentCardValidBlocks.Contains(blockGridLocation) && currentChooseCard.IsValidToConsume(playerBlock, targetBlock))
+                {
+                    pickedBlock = targetBlock;
+                    ConsumCard(false);
+                }
             }
-            else
+            else if(_battleSubState == BattleSubState.WaitingForMove)
             {
-                TryMovePawn(_playerPawn, targetBlock);
+                if(IsAttackAction(playerBlock, targetBlock))
+                {
+                    TryAttack(_playerPawn, targetBlock);
+                }
+                else
+                {
+                    TryMovePawn(_playerPawn, targetBlock);
+                }
             }
         }
         #endregion
@@ -810,12 +956,17 @@ namespace PDR
         #endregion
 
         #region ------------------------------------------------------------------PawnControl 地图Pawn更新------------------------------------------------------------------
+        public void TryAttack(BlockInfo targetBlock)
+        {
+            TryAttack(_playerPawn, targetBlock);
+        }
+
         /// <summary>
         /// sourcePawn攻击targetBlock位置的单位
         /// </summary>
         /// <param name="sourcePawn"></param>
         /// <param name="targetBlock"></param>
-        private void TryAttack(MapPawn sourcePawn, BlockInfo targetBlock)
+        public void TryAttack(MapPawn sourcePawn, BlockInfo targetBlock)
         {
             sourcePawn._animControlComp.RegisterAttackContext(targetBlock.pawn);
             sourcePawn.PlayAnimation("Attack");
@@ -882,7 +1033,7 @@ namespace PDR
             }
 
             sourceBlock.pawn = null;
-            SetSubBattleState(BattleSubState.UpdatingMove);
+            SetBattleState(BattleState.PlayerTurn, BattleSubState.UpdatingMove);
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.MOVE_PLAYER, (MapPawn)_playerPawn, safeBlocks);
 
         }
@@ -958,14 +1109,14 @@ namespace PDR
             }
             else
             {
-                SetSubBattleState(BattleSubState.WaitingForAction);
+                SetBattleState(BattleState.PlayerTurn, BattleSubState.WaitingForMove);
             }
         }
 
         private void UpdateEnergy(int newEnergy = 0)
         {
             energy = newEnergy;
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, energy); 
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, energy);
         }
 
         private void OnClearRoad()
@@ -1022,7 +1173,7 @@ namespace PDR
             }
             ModifyDiceNum(-1);
             ModifyEnergy(-1);
-            SetSubBattleState(BattleSubState.Rolling);
+            SetBattleState(BattleState.PlayerTurn, BattleSubState.Rolling);
             rollEnd = Time.time + rollDuration;
             lastRollTime = Time.time;
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, false);
@@ -1032,7 +1183,7 @@ namespace PDR
         {
             rollEnd = 0.0f;
             lastRollTime = 0.0f;
-            SetSubBattleState(BattleSubState.WaitingForAction);
+            SetBattleState(BattleState.PlayerTurn, BattleSubState.WaitingForMove);
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, true);
         }
 

@@ -8,7 +8,7 @@ namespace PDR
     {
         public static Transform FindInChildren(this GameObject go, string name)
         {
-            foreach (Transform x in go.GetComponentsInChildren<Transform>())
+            foreach (Transform x in go.GetComponentsInChildren<Transform>(true))
             {
                 if (x.gameObject.name == name)
                 {

@@ -109,23 +109,6 @@ namespace PDR
         {
             playerView.hpSlider.value = playerState._health / playerState._maxHealth;
             playerView.hpText.text = playerState._health.ToString() + "/" + playerState._maxHealth.ToString();
-
-            Dictionary<string, Sprite> config = GameObject.Find("game").GetComponent<GameEntry>().spriteConfig;
-            int skillIconID = 0;
-            foreach(SkillInfo skillInfo in playerState.skillInfos)
-            {
-                playerView.skillIcons[skillIconID].skillBtn.enabled = true;
-                playerView.skillIcons[skillIconID].skillImg.enabled = true;
-                playerView.skillIcons[skillIconID].value.enabled = true;
-                playerView.skillIcons[skillIconID].cost.enabled = true;
-
-                playerView.skillIcons[skillIconID].value.text = skillInfo.value.ToString();
-                playerView.skillIcons[skillIconID].cost.text = skillInfo.cost.ToString();
-                config.TryGetValue(skillInfo.spritePath, out Sprite sprite);
-                playerView.skillIcons[skillIconID].skillImg.sprite = sprite;
-
-                skillIconID++;
-            }
         }
         #endregion
     }

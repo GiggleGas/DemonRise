@@ -10,12 +10,16 @@ namespace PDR
         private TextMesh healText;
 
         [SerializeField]
-        private TextMesh attackText;
+        private TextMesh attackText; 
 
-        public void UpdateStates(float healValue, float attackValue)
+        [SerializeField]
+        private TextMesh DefenceText;
+
+        public void UpdateStates(float healValue, float attackValue, float defenceValue)
         {
             healText.text = healValue.ToString();
             attackText.text = attackValue.ToString();
+            DefenceText.text = defenceValue.ToString();
         }
     }
 }

@@ -15,7 +15,11 @@ namespace PDR
     {
         public float _health;
         public float _maxHealth;
+
         public float _attack;
+        public float _attackTimes = 1.0f;
+        public float _attackPlusConst = 0.0f;
+
         public float _defence;
         public int _experience;
         public int _upgradeExperience;
@@ -48,6 +52,7 @@ namespace PDR
                 spritePath = "defence"
             });
             */
+            EventMgr.Instance.Register<MapPawn, MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_ATTACK_FINISH, RecoverAttack);
         }
 
         public bool TryUpGrade()
@@ -62,20 +67,53 @@ namespace PDR
 
         public override float TakeDamage(MapPawn damageSource, float damageValue)
         {
-            _health -= damageValue;
+            _defence -= damageValue;
+            if (_defence < 0)
+            {
+                _health += _defence;
+                _defence = 0;
+            }
             UpdateGo();
             return damageValue;
         }
 
         public override float GetAttackValue()
         {
-            return _attack;
+            return (_attack + _attackPlusConst) * _attackTimes;
         }
 
         protected override void UpdateGo()
         {
             base.UpdateGo();
-            _pawnGo.UpdateStates(_health, _attack);
+            _pawnGo.UpdateStates(_health, (_attack + _attackPlusConst) * _attackTimes, _defence);
+        }
+
+        public void UpadateAttackTimes(float value, bool bIsConst, bool bIsPlus)
+        {
+            if(bIsConst)
+            {
+                _attackPlusConst += value;
+            }
+            else
+            {
+                if(!bIsPlus)
+                {
+                    _attackTimes *= value;
+                }
+            }
+            UpdateGo();
+        }
+
+        public void RecoverAttack(MapPawn pawnA, MapPawn pawnB)
+        {
+            _attackTimes = 1.0f;
+            UpdateGo();
+        }
+
+        public void AddDefence(float value)
+        {
+            _defence += value;
+            UpdateGo();
         }
     }
 }

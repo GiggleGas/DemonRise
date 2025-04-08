@@ -105,7 +105,7 @@ namespace PDR
                 else 
                 {
                     BlockInfo enemyBlock = BattleManager.Instance.GetBlockByGridLocation(monster._gridPosition);
-                    List<Vector2Int> movePath = BattleManager.Instance.FindShortestPath(enemyBlock._gridLocation, BattleManager.Instance._playerPawn._gridPosition, true);
+                    List<Vector2Int> movePath = BattleManager.Instance.FindShortestPath(enemyBlock._gridLocation, BattleManager.Instance._playerPawn._gridPosition);
                     if(movePath.Count <= 0)
                     {
                         continue;

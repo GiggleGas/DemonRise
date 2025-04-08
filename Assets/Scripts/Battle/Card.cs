@@ -6,6 +6,12 @@ using UnityEngine;
 
 namespace PDR
 {
+    public class CardHelper
+    {
+        public static int currentID = 0;
+    }
+
+
     public enum UsageType
     {
         SingleUse,  // 一次性卡牌
@@ -25,6 +31,7 @@ namespace PDR
             _drawPile.Clear();
             _drawPile = new List<CardBase>(cards);
             ShuffleDeck();
+            EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.HIDE_USED_CARD, OnCardUsed);
         }
 
         public void AddCard(CardBase card)
@@ -96,8 +103,17 @@ namespace PDR
         }
 
         // 使用卡牌后的处理
-        public void OnCardUsed(CardBase usedCard)
+        public void OnCardUsed(int id)
         {
+            CardBase usedCard = null;
+            foreach (CardBase card in _handPile)
+            {
+                if(card!=null && id == card._id)
+                {
+                    usedCard = card; 
+                    break;
+                }
+            }
             _handPile.Remove(usedCard);
 
             if (usedCard._usageType == UsageType.Reusable)
@@ -107,16 +123,21 @@ namespace PDR
         }
     }
 
+
     public class CardBase
     {
         public int _id;
+        public int _typeID;
         public int _step;
+        public int _range;
         public UsageType _usageType;
 
-        public CardBase(int id, int step, UsageType usageType)
+        public CardBase(int typeID, int step, int range, UsageType usageType)
         {
-            _id = id;
+            _id = CardHelper.currentID++;
+            _typeID = typeID;
             _step = step;
+            _range = range;
             _usageType = usageType;
         }
 
@@ -124,13 +145,41 @@ namespace PDR
 
         public virtual void Hold() { }
 
-        public virtual void Consume() { }
+        public void Consume(bool bEnergy) 
+        {
+            if(bEnergy)
+            {
+                ConsumeToEnergy();
+            }
+            else
+            {
+                ConsumeSkill();
+            }
+        }
+
+        public void FinishCardSkill()
+        {
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CARD_USE_FINISH);
+        }
+
+        public virtual void ConsumeToEnergy()
+        {
+            BattleManager.Instance.ModifyEnergy(_step);
+            FinishCardSkill();
+        }
+
+        public virtual void ConsumeSkill() { }
+
+        public virtual bool IsValidToConsume(BlockInfo playerBlock, BlockInfo targetBlock)
+        {
+            return true;
+        }
     }
 
     public class AttackCard : CardBase
     {
         public float _attackValue;
-        public AttackCard(int id, int step, float attackValue) : base(id, step, UsageType.Reusable) 
+        public AttackCard(int typeID, int step, int range, float attackValue) : base(typeID, step, range, UsageType.Reusable) 
         {
             _attackValue = attackValue;
         }
@@ -139,16 +188,52 @@ namespace PDR
         {
 
         }
+
+        public override bool IsValidToConsume(BlockInfo playerBlock, BlockInfo targetBlock)
+        {
+            return targetBlock.pawn != null && targetBlock.pawn._teamType == TeamType.Enemy;
+        }
+
+        public override void ConsumeSkill()
+        {
+            base.ConsumeSkill();
+            BattleManager.Instance._playerPawn.UpadateAttackTimes(_attackValue, false, false);
+            BattleManager.Instance.TryAttack(BattleManager.Instance.pickedBlock);
+            EventMgr.Instance.Register<MapPawn, MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_ATTACK_FINISH, RecoverAttack);
+        }
+
+        public void RecoverAttack(MapPawn mapPawnA, MapPawn mapPawnB)
+        {
+            FinishCardSkill();
+        }
     }
 
     public class FastMoveCard : CardBase
     {
-        public FastMoveCard(int id, int step) : base(id, step, UsageType.Reusable) { }
+        public FastMoveCard(int typeID, int step, int range) : base(typeID, step, range, UsageType.Reusable) { }
 
-        public override void Click()
+        public override void ConsumeSkill()
         {
-
+            base.ConsumeSkill();
+            BattleManager.Instance.ModifyEnergy(_step);
+            FinishCardSkill();
         }
 
+    }
+
+    public class DefenceCard : CardBase
+    {
+        public float _defenceValue;
+        public DefenceCard(int typeID, int step, int range, float defenceValue) : base(typeID, step, range, UsageType.Reusable)
+        {
+            _defenceValue = defenceValue;
+        }
+
+        public override void ConsumeSkill()
+        {
+            base.ConsumeSkill();
+            BattleManager.Instance._playerPawn.AddDefence(_defenceValue);
+            FinishCardSkill();
+        }
     }
 }

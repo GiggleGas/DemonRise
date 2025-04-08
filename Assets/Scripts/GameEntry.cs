@@ -10,13 +10,13 @@ public class GameEntry : MonoBehaviour
     [System.Serializable]
     public struct spriteStruct
     {
-        public string type;
+        public int id;
         public Sprite sprite;
     }
 
     public spriteStruct[] sweetPrefabs;
     public Sprite[] numSprites;
-    public Dictionary<string, Sprite> spriteConfig;
+    public Dictionary<int, Sprite> spriteConfig;
 
     public GameObject blockUIPrefab;
     public GameObject playerGoPrefab;
@@ -24,12 +24,12 @@ public class GameEntry : MonoBehaviour
 
     public void Awake()
     {
-        spriteConfig = new Dictionary<string, Sprite>();
+        spriteConfig = new Dictionary<int, Sprite>();
         for (int i = 0; i < sweetPrefabs.Length; i++)
         {
-            if (!spriteConfig.ContainsKey(sweetPrefabs[i].type))
+            if (!spriteConfig.ContainsKey(sweetPrefabs[i].id))
             {
-                spriteConfig.Add(sweetPrefabs[i].type, sweetPrefabs[i].sprite);
+                spriteConfig.Add(sweetPrefabs[i].id, sweetPrefabs[i].sprite);
             }
         }
         GameObject.DontDestroyOnLoad(this);

@@ -60,6 +60,11 @@ namespace PDR
 
         // card
         public const int UPDATE_HAND_DECK = 301;
+        public const int CLICK_CARD = 302;
+        public const int CANCEAL_SELECT_CARD = 303;
+        public const int CARD_USE_FINISH = 304;
+        public const int CARD_TO_ENERGY = 305;
+        public const int HIDE_USED_CARD = 306;
 
     }
 }
