@@ -110,6 +110,11 @@ namespace PDR
         public float rollEnd = 0.0f; // 骰子最终时间
         public float lastRollTime = 0.0f; // 上次切换时间
 
+        // card
+        public CardContainer playerCards;
+        public int handMaxNum;
+        public CardBase currentChooseCard;
+
         public void OnAwake()
         {
             // RegisterViews
@@ -150,6 +155,7 @@ namespace PDR
             InitMap();
             InitPlayer();
             InitUI();
+            InitializeCards();
             InitializeLevel(currentLevel);
             StartPlayerTurn();
         }
@@ -179,6 +185,7 @@ namespace PDR
             // todo 读配置
             RefreshBlockEvents(level);
             ModifyDiceNum(dicePerLevel);
+            playerCards.DrawInitialCards(handMaxNum);
         }
 
         /// <summary>
@@ -226,8 +233,8 @@ namespace PDR
         /// </summary>
         void StartPlayerTurn()
         {
-            UpdateEnergy(energy + energyPerRound);
             SetBattleState(BattleState.PlayerTurn, BattleSubState.WaitingForAction);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_HAND_DECK, playerCards.DrawCards(handMaxNum));
         }
 
         /// <summary>
@@ -396,6 +403,29 @@ namespace PDR
             }
         }
         #endregion
+
+        #region -------------------------------------------------------- Card 战斗卡牌 --------------------------------------------------------
+        public void InitializeCards()
+        {
+            handMaxNum = 5;
+            playerCards = new CardContainer();
+            List<CardBase> cardBases = new List<CardBase>()
+            {
+                new AttackCard(1001, 1, 1),
+                new AttackCard(1001, 1, 1),
+                new AttackCard(1001, 1, 1),
+                new AttackCard(1001, 1, 1),
+                new AttackCard(1001, 1, 1),
+                new FastMoveCard(1002, 2),
+                new FastMoveCard(1002, 2),
+                new FastMoveCard(1002, 2),
+                new FastMoveCard(1002, 2),
+            };
+            playerCards.InitializeDeck(cardBases);
+        }
+
+        #endregion
+
 
         #region ------------------------------------------------------------------TileMap 包括地图和部分地图内容判断------------------------------------------------------------------
         /// <summary>

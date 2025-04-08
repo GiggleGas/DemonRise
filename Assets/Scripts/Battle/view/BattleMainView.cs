@@ -19,10 +19,8 @@ namespace PDR
         private Image energyTens;
         private Image energyOnes;
         private GameObject endGame;
-        //private Slider healthBarSlider;
-        //private TextMeshProUGUI playerHealthTxt;
-        //private TextMeshProUGUI playerExperience;
-        //private TextMeshProUGUI playerLevel;
+        private GameObject cardTemplet;
+        private GameObject cardContainer;
 
         protected override void OnAwake()
         {
@@ -34,10 +32,8 @@ namespace PDR
             energyTens = transform.Find("energy/tens").GetComponent<Image>();
             energyOnes = transform.Find("energy/ones").GetComponent<Image>();
             endGame = transform.Find("EndGame").gameObject;
-            //healthBarSlider = transform.Find("playerState/health").GetComponent<Slider>();
-            //playerHealthTxt = transform.Find("playerState/health/healthTxt").GetComponent<TextMeshProUGUI>();
-            //playerExperience = transform.Find("playerState/goldenBG/playerExperience").GetComponent<TextMeshProUGUI>();
-            //playerLevel = transform.Find("playerState/playerIcon/playerLevel").GetComponent<TextMeshProUGUI>();
+            cardTemplet = transform.Find("cardTemplet").gameObject;
+            cardContainer = transform.Find("cardContainer").gameObject;
 
             diceBtn.onClick.AddListener(OnClickDiceBtn);
             quitBtn.onClick.AddListener(OnClickQuitBtn);
@@ -48,9 +44,11 @@ namespace PDR
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_SPRITE, ChangeDiceBtnSprite);
             EventMgr.Instance.Register<bool>(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, ChangeDiceBtnState);
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_ENERGY, UpdateEnergy);
-            EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_DICE_NUM, UpdateDiceNum);
+            // EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_DICE_NUM, UpdateDiceNum);
             EventMgr.Instance.Register<bool>(EventType.EVENT_BATTLE_UI, SubEventType.END_GAME, ShowGameEnd);
             EventMgr.Instance.Register<PlayerPawn>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_PLAYER_PAWN, UpdatePlayerState);
+            EventMgr.Instance.Register<List<CardBase>>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_HAND_DECK, UpdateCards);
+
         }
 
         private void OnClickDiceBtn()
@@ -104,6 +102,17 @@ namespace PDR
             //playerHealthTxt.text = player._health.ToString() + " " + player._maxHealth.ToString();
             //playerExperience.text = player._experience.ToString();
             //playerLevel.text = player._level.ToString();
+        }
+
+        public void UpdateCards(List<CardBase> cards)
+        {
+            foreach (CardBase card in cards)
+            {
+                GameObject cardGo = GameObject.Instantiate(cardTemplet, cardContainer.transform);
+                cardGo.SetActive(true);
+                cardGo.FindInChildren("step").GetComponent<TextMeshProUGUI>().text = card._step.ToString();
+
+            }
         }
     }
 }

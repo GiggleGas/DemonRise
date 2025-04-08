@@ -58,5 +58,8 @@ namespace PDR
 
         public const int AI_TURN_FINISH = 212;
 
+        // card
+        public const int UPDATE_HAND_DECK = 301;
+
     }
 }
