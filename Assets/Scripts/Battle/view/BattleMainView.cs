@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.VisualScripting;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using static UnityEngine.EventSystems.EventTrigger;
@@ -24,9 +25,12 @@ namespace PDR
         private GameObject endGame;
         private GameObject cardTemplete;
         private GameObject cardContainer;
-
+        private Slider roundSlider;
+        private TextMeshProUGUI battleStateTxt;
+        private TextMeshProUGUI subStateTxt;
+        private TextMeshProUGUI currentSelectCard;
+        
         private Dictionary<int, GameObject> _cards;
-        private GameObject hiddenCard = null;
 
         protected override void OnAwake()
         {
@@ -37,14 +41,17 @@ namespace PDR
             diceNumTxt = transform.Find("diceBtn/diceNum").GetComponent<TextMeshProUGUI>();
             energyTens = transform.Find("energy/tens").GetComponent<Image>();
             energyOnes = transform.Find("energy/ones").GetComponent<Image>();
-            energyBtn = transform.Find("energy").GetComponent<Button>();
             endGame = transform.Find("EndGame").gameObject;
             cardTemplete = transform.Find("cardTemplete").gameObject;
             cardContainer = transform.Find("cardContainer").gameObject;
+            roundSlider = transform.Find("round").GetComponent<Slider>();
+            battleStateTxt = transform.Find("battleState").GetComponent<TextMeshProUGUI>();
+            subStateTxt = transform.Find("subState").GetComponent<TextMeshProUGUI>();
+            subStateTxt = transform.Find("subState").GetComponent<TextMeshProUGUI>();
+            currentSelectCard = transform.Find("currentSelectCard").GetComponent<TextMeshProUGUI>();
 
             diceBtn.onClick.AddListener(OnClickDiceBtn);
             quitBtn.onClick.AddListener(OnClickQuitBtn);
-            energyBtn.onClick.AddListener(OnClickEnergyBtn);
 
             int randomIndex = UnityEngine.Random.Range(0, 6);
             diceImg.sprite = BattleManager.Instance.diceSprites[randomIndex];
@@ -58,6 +65,9 @@ namespace PDR
             EventMgr.Instance.Register<List<CardBase>>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_HAND_DECK, UpdateCards);
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.CANCEAL_SELECT_CARD, OnCancealSelectCard);
             EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.HIDE_USED_CARD, HideUsedCard);
+            EventMgr.Instance.Register<BattleState, BattleSubState>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_GAME_STAGE, ChangeState);
+            EventMgr.Instance.Register<float>(EventType.EVENT_BATTLE_UI, SubEventType.START_NEW_ROUND, UpdateRound);
+            EventMgr.Instance.Register<int>(EventType.EVENT_BATTLE_UI, SubEventType.UPDATE_SELECTED_CARD, UpdateSelectedCard);
         }
 
         private void OnClickDiceBtn()
@@ -85,12 +95,6 @@ namespace PDR
 #endif
         }
 
-        private void OnClickEnergyBtn()
-        {
-            // todo 通知选择步数
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CARD_TO_ENERGY);
-        }
-
         public void UpdateEnergy(int energy)
         {
             int tenNum = energy / 10;
@@ -113,44 +117,33 @@ namespace PDR
 
         public void UpdateCards(List<CardBase> cards)
         {
-            if(_cards.Count <= 0)
+            foreach(var iter in _cards) 
             {
-                foreach (CardBase card in cards)
-                {
-                    GameObject cardGo = GameObject.Instantiate(cardTemplete, cardContainer.transform);
-                    cardGo.SetActive(true);
-                    cardGo.FindInChildren("step").GetComponent<Image>().sprite = BattleManager.Instance.GetGameEntry().numSprites[card._step % 10];
-                    cardGo.FindInChildren("icon").GetComponent<Image>().sprite = BattleManager.Instance.GetGameEntry().spriteConfig[card._typeID];
-                    cardGo.GetComponent<Button>().onClick.AddListener(() => 
-                        OnClickCard(card)
-                    );
-                    _cards.Add(card._id, cardGo);
-                }
+                GameObject.Destroy(iter.Value);
             }
-            else
+            _cards.Clear();
+            
+            List<string> idString = new List<string>();
+            foreach (CardBase card in cards)
             {
-                foreach(CardBase card in cards)
-                {
-                    if(card == null || _cards.ContainsKey(card._id))
-                    {
-                        continue;
-                    }
-                    if(hiddenCard == null)
-                    {
-                        hiddenCard = GameObject.Instantiate(cardTemplete, cardContainer.transform);
-                    }
-                    hiddenCard.SetActive(true);
-                    hiddenCard.FindInChildren("step").gameObject.SetActive(true);
-                    hiddenCard.FindInChildren("icon").gameObject.SetActive(true);
-                    hiddenCard.FindInChildren("step").GetComponent<Image>().sprite = BattleManager.Instance.GetGameEntry().numSprites[card._step % 10];
-                    hiddenCard.FindInChildren("icon").GetComponent<Image>().sprite = BattleManager.Instance.GetGameEntry().spriteConfig[card._typeID];
-                    hiddenCard.GetComponent<Button>().onClick.AddListener(() =>
-                        OnClickCard(card)
-                    );
-                    _cards.Add(card._id, hiddenCard);
+                GameObject cardGo = GameObject.Instantiate(cardTemplete, cardContainer.transform);
+                cardGo.SetActive(true);
+                cardGo.FindInChildren("step").gameObject.SetActive(true);
+                cardGo.FindInChildren("icon").gameObject.SetActive(true);
+                cardGo.FindInChildren("id").gameObject.SetActive(true);
+                cardGo.FindInChildren("step").GetComponent<Image>().sprite = BattleManager.Instance.GetGameEntry().numSprites[card._cost % 10];
+                cardGo.FindInChildren("icon").GetComponent<Image>().sprite = BattleManager.Instance.GetGameEntry().spriteConfig[card._typeID];
+                cardGo.FindInChildren("id").GetComponent<TextMeshProUGUI>().text = card.GetValueString();
+                cardGo.GetComponent<Button>().onClick.RemoveAllListeners();
+                cardGo.GetComponent<Button>().onClick.AddListener(() =>
+                    OnClickCard(card)
+                );
+                _cards.Add(card._id, cardGo);
+                idString.Add(card._id.ToString());
+            }
 
-                }
-            }
+            string debugString = string.Join(",", idString);
+            Debug.Log(debugString);
         }
 
         public void OnClickCard(CardBase card)
@@ -162,16 +155,56 @@ namespace PDR
         {
             if(_cards.ContainsKey(id))
             {
-                hiddenCard = _cards[id];
-                _cards.Remove(id);
-                hiddenCard.FindInChildren("step").gameObject.SetActive(false);
-                hiddenCard.FindInChildren("icon").gameObject.SetActive(false);
+                _cards[id].FindInChildren("step").gameObject.SetActive(false);
+                _cards[id].FindInChildren("icon").gameObject.SetActive(false);
+                _cards[id].FindInChildren("id").gameObject.SetActive(false);
+                _cards[id].GetComponent<Button>().onClick.RemoveAllListeners();
             }
         }
 
         public void OnCancealSelectCard(int id)
         {
             // todo 做点表现
+        }
+
+        public void UpdateRound(float roundPercent)
+        {
+            roundSlider.value = roundPercent;
+        }
+
+        public void ChangeState(BattleState state, BattleSubState subState)
+        {
+            if(state == BattleState.PlayerTurn)
+            {
+                battleStateTxt.text = "Player Turn";
+            }
+            else if(state == BattleState.MonsterTurn)
+            {
+                battleStateTxt.text = "Enmey Turn";
+            }
+
+            if (subState == BattleSubState.WaitingForAction)
+            {
+                subStateTxt.text = "WaitingForAction";
+            }
+            else if (subState == BattleSubState.HoldingCard)
+            {
+                subStateTxt.text = "HoldingCard";
+
+            }
+            else if (subState == BattleSubState.UpdatingMove)
+            {
+                subStateTxt.text = "UpdatingMove";
+            }
+            else if (subState == BattleSubState.UpdateBattle)
+            {
+                subStateTxt.text = "UpdateBattle";
+            }
+        }
+
+        public void UpdateSelectedCard(int id)
+        {
+            currentSelectCard.text = id.ToString();
         }
     }
 }

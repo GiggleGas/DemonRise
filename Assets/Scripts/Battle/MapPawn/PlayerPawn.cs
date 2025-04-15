@@ -18,6 +18,7 @@ namespace PDR
 
         public float _attack;
         public float _attackTimes = 1.0f;
+        public float _attackPlus = 0.0f;
         public float _attackPlusConst = 0.0f;
 
         public float _defence;
@@ -79,26 +80,37 @@ namespace PDR
 
         public override float GetAttackValue()
         {
-            return (_attack + _attackPlusConst) * _attackTimes;
+            return (_attack + _attackPlusConst + _attackPlus) * _attackTimes;
         }
 
         protected override void UpdateGo()
         {
             base.UpdateGo();
-            _pawnGo.UpdateStates(_health, (_attack + _attackPlusConst) * _attackTimes, _defence);
+            _pawnDisplayComp.UpdateStates(_health, (_attack + _attackPlusConst + _attackPlus) * _attackTimes, _defence);
         }
 
         public void UpadateAttackTimes(float value, bool bIsConst, bool bIsPlus)
         {
             if(bIsConst)
             {
-                _attackPlusConst += value;
+                if (!bIsPlus)
+                {
+                    _attackTimes *= value;
+                }
+                else
+                {
+                    _attackPlusConst += value;
+                }
             }
             else
             {
-                if(!bIsPlus)
+                if (!bIsPlus)
                 {
                     _attackTimes *= value;
+                }
+                else
+                {
+                    _attackPlus += value;
                 }
             }
             UpdateGo();
@@ -106,7 +118,12 @@ namespace PDR
 
         public void RecoverAttack(MapPawn pawnA, MapPawn pawnB)
         {
+            if(!pawnA.IsValid || pawnA != this)
+            {
+                return;
+            }
             _attackTimes = 1.0f;
+            _attackPlus = 0.0f;
             UpdateGo();
         }
 

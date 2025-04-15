@@ -13,6 +13,7 @@ namespace PDR
         public float _attack;
         public float _defence;
         public int _experience;
+        public int _energy;
 
         public EnemyPawn(BlockInfo block, GameObject gameObject, TeamType teamType, int moveRange, int attackRange, float health, float maxHealth, float attack, int exp) : 
             base(block, gameObject, teamType, moveRange, attackRange)
@@ -38,12 +39,28 @@ namespace PDR
         protected override void UpdateGo()
         {
             base.UpdateGo();
-            _pawnGo.UpdateStates(_health, _attack, _defence);
+            _pawnDisplayComp.UpdateStates(_health, _attack, _defence);
         }
 
         public bool CanAttack()
         {
             return false;
+        }
+
+        public void Enhance(float health, float attack, float defence)
+        {
+            _health += health;
+            _attack += attack;
+            _defence += defence;
+            UpdateGo();
+        }
+
+        /// <summary>
+        /// 当开始初始化该Monster
+        /// </summary>
+        public void BeginUpdate()
+        {
+            _energy = 3; // 假设初始化为3点能量
         }
     }
 }

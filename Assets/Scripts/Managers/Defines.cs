@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Animations;
 
 
 namespace PDR
@@ -39,8 +40,8 @@ namespace PDR
         public const int UPDATE_PLAYER_PAWN = 106;
         public const int ENTER_GAMBLING = 107;
         public const int UPDATE_GAMBLING_PLAYER_VIEW = 108;
-        public const int ANIM_FINISH = 109;
         public const int UPDATE_DICE_NUM = 110;
+        public const int START_NEW_ROUND = 111;
 
         public const int ROLL_THE_DICE = 201; // view -> mgr
         public const int GAMBLING_VIEW_FINISH_LOAD = 202;
@@ -49,14 +50,13 @@ namespace PDR
         public const int BLOCK_MOUSE_DOWN = 205;
         public const int BLOCK_MOUSE_UP = 206;
 
-        public const int MOVE_PLAYER = 207;
-        public const int MOVE_AI = 208;
-        public const int PLAYER_MOVE_FINISH = 209;
+        public const int PAWN_MOVE = 207;
+        public const int PAWN_MOVE_FINISH = 208;
+        public const int PAWN_PLAY_ANIMATION = 209;
+        public const int PAWN_PLAY_ANIMATION_FINISH = 210;
 
-        public const int PLAYER_ATTACK_FINISH = 210;
-        public const int AI_ATTACK_FINISH = 211;
-
-        public const int AI_TURN_FINISH = 212;
+        public const int MONSTER_TURN_START = 211;
+        public const int MONSTER_TURN_FINISH = 212;
 
         // card
         public const int UPDATE_HAND_DECK = 301;
@@ -65,6 +65,12 @@ namespace PDR
         public const int CARD_USE_FINISH = 304;
         public const int CARD_TO_ENERGY = 305;
         public const int HIDE_USED_CARD = 306;
+        public const int UPDATE_SELECTED_CARD = 307;
+        public const int SPAWN_FIRE = 308;
+
+        // blocks
+        public const int STEP_ON_GOLDEN_BLOCK = 401;
+
 
     }
 }

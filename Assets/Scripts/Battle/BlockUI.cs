@@ -26,8 +26,14 @@ namespace PDR
             _type = type;
         }
 
-        public void OnStepOn()
+        public void OnStepOn(MapPawn mapPawn)
         {
+            // ½±ÀøµØ¿éÊÂ¼þ
+            if(blockUI.IsGolden() && mapPawn is PlayerPawn)
+            {
+                blockUI.SetGolden(false);
+                EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.STEP_ON_GOLDEN_BLOCK);
+            }
         }
 
         public void OnStepOff()
@@ -43,6 +49,7 @@ namespace PDR
         private GameObject _path;
         private GameObject _range;
         private GameObject _warning; 
+        private GameObject _golden;
 
         private void Awake()
         {
@@ -50,6 +57,7 @@ namespace PDR
             _path = transform.Find("path").gameObject;
             _range = transform.Find("range").gameObject;
             _warning = transform.Find("warning").gameObject;
+            _golden = transform.Find("golden").gameObject;
         }
 
         private void OnMouseOver()
@@ -87,6 +95,16 @@ namespace PDR
         public void ShowWarning(bool value)
         {
             _warning.SetActive(value);
+        }
+
+        public void SetGolden(bool value)
+        {
+            _golden.SetActive(value);
+        }
+
+        public bool IsGolden()
+        {
+            return _golden.activeSelf;
         }
     }
 

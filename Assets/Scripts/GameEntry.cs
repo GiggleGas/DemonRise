@@ -21,6 +21,7 @@ public class GameEntry : MonoBehaviour
     public GameObject blockUIPrefab;
     public GameObject playerGoPrefab;
     public GameObject enemyGoPrefab;
+    public GameObject fireExplosion;
 
     public void Awake()
     {

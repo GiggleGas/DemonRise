@@ -7,26 +7,28 @@ using UnityEngine;
 
 namespace PDR
 {
+    /// <summary>
+    /// 地图Pawn基类，一切在地图上的item都以这个为基准
+    /// </summary>
     public class MapPawn
     {
-        public GameObject _gameObject;
-        public Vector2Int _gridPosition;
-        public AnimControlComp _animControlComp;
+        public GameObject _gameObject;                  // 场景物体Go
+        public Vector2Int _gridLocation;                // 位置
+        public PawnDisplayComp _pawnDisplayComp;        // 表现组件
+        public Animator _animator;                      // 动画组件
+
         public TeamType _teamType;
         public int _moveRange;
         public int _attackRange;
-        public PawnGo _pawnGo;
         public bool IsValid;
 
         public MapPawn(BlockInfo block, GameObject gameObject, TeamType teamType, int moveRange, int attackRange)
         {
             _gameObject = gameObject;
             _gameObject.GetComponent<Transform>().position = block._worldlocation;
-            _gridPosition = block._gridLocation;
-            _animControlComp = _gameObject.AddComponent<AnimControlComp>();
-            _animControlComp.SetSourcePawn(this);
+            _pawnDisplayComp = _gameObject.GetComponent<PawnDisplayComp>();
+            _animator = _gameObject.GetComponent<Animator>();
             _teamType = teamType;
-            _pawnGo = _gameObject.GetComponent<PawnGo>();
             _moveRange = moveRange;
             _attackRange = attackRange;
             block.pawn = this;
@@ -35,14 +37,14 @@ namespace PDR
 
         public virtual void PostInitialize()
         {
-            PlayAnimation("Idle");
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ANIMATION, this, "Idle", 0, 0);
             UpdateGo();
         }
 
         public void UpdatePawnBlock(BlockInfo block, BlockInfo oldBlock)
         {
             oldBlock.pawn = null;
-            _gridPosition = block._gridLocation;
+            _gridLocation = block._gridLocation;
             _gameObject.GetComponent<Transform>().position = block._worldlocation;
             block.pawn = this;
         }
@@ -51,12 +53,7 @@ namespace PDR
 
         public void PlayAnimation(string animation, float crossFade = 0.2f, float time = 0)
         {
-            _animControlComp.ChangeAnimation(animation, crossFade, time);
-        }
-
-        public void PlayDuringAnimation(string animation, float time = 1.0f, float crossFade = 0.2f)
-        {
-            _animControlComp.ChangeDuringAnimation(animation, time, crossFade);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ANIMATION, this, animation, time, crossFade);
         }
 
         public void UpdateTeamType(TeamType teamType)
@@ -82,11 +79,22 @@ namespace PDR
         public void DestroySelf()
         {
             // todo 对象池
-            BattleManager.Instance.GetBlockByGridLocation(_gridPosition).pawn = null;
+            BattleManager.Instance.GetBlockByGridLocation(_gridLocation).pawn = null;
             _gameObject.SetActive(false);
         }
 
         // 更新UI
         virtual protected void UpdateGo() { }
+
+        // x变大为false, x变小为true
+        public void UpdateRot(float deltaX)
+        {
+            _gameObject.GetComponent<SpriteRenderer>().flipX = deltaX < 0;
+        }
+
+        virtual public void OnAnimFinish(string animation)
+        {
+
+        }
     }
 }

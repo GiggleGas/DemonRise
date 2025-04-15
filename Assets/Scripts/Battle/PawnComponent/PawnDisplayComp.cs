@@ -4,7 +4,10 @@ using UnityEngine;
 
 namespace PDR
 {
-    public class PawnGo : MonoBehaviour
+    /// <summary>
+    /// MapPawn的表现组件，血量，数值，伤害飘字等
+    /// </summary>
+    public class PawnDisplayComp : MonoBehaviour
     {
         [SerializeField]
         private TextMesh healText;
