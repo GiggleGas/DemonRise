@@ -1024,7 +1024,7 @@ namespace PDR
         /// <param name="targetBlock"></param>
         public void TryAttack(MapPawn sourcePawn, BlockInfo targetBlock)
         {
-            sourcePawn._animControlComp.RegisterAttackContext(targetBlock.pawn);
+            // sourcePawn._animControlComp.RegisterAttackContext(targetBlock.pawn);
             sourcePawn.PlayAnimation("Attack");
         }
 
