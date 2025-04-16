@@ -116,10 +116,10 @@ namespace PDR
             else
             {
                 AttackStruct attackStruct = new AttackStruct();
-                attackStruct.attackTargets.Add(target);
-                _attackList.Add(target, attackStruct);
+                attackStruct.attackTargets = new List<MapPawn> { target };
+                _attackList.Add(enemyPawn, attackStruct);
             }
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ANIMATION, enemyPawn, "Attack", 1.0f, 0.2f);
+            enemyPawn.PlayOnceAnimation("Attack", 0.8f);
         }
 
         /// <summary>
@@ -141,6 +141,7 @@ namespace PDR
                 {
                     target.TakeDamage(_currentEnemy, _currentEnemy.GetAttackValue());
                 }
+                mapPawn.PlayContinuousAnimation("idle");
             }
             BeginAIAction(); // ¼ÌÐø¾ö²ß
         }
@@ -159,16 +160,17 @@ namespace PDR
             }
 
             List<Vector2Int> safeBlocks = new List<Vector2Int>();
-            foreach (Vector2Int curBlock in movePath)
+            for (int i = 1; i < movePath.Count - 1; i++)
             {
-                if(_currentEnemy._energy > 0)
+                Vector2Int curBlock = movePath[i];
+                if (_currentEnemy._energy > 0)
                 {
                     safeBlocks.Add(curBlock);
                     _currentEnemy._energy--;
                 }
             }
 
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_MOVE, _currentEnemy, safeBlocks);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_MOVE, (MapPawn)_currentEnemy, safeBlocks);
         }
 
         /// <summary>

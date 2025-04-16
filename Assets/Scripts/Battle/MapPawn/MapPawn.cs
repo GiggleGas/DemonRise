@@ -26,6 +26,7 @@ namespace PDR
         {
             _gameObject = gameObject;
             _gameObject.GetComponent<Transform>().position = block._worldlocation;
+            _gridLocation = block._gridLocation;
             _pawnDisplayComp = _gameObject.GetComponent<PawnDisplayComp>();
             _animator = _gameObject.GetComponent<Animator>();
             _teamType = teamType;
@@ -37,7 +38,7 @@ namespace PDR
 
         public virtual void PostInitialize()
         {
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ANIMATION, this, "Idle", 0, 0);
+            PlayContinuousAnimation("Idle");
             UpdateGo();
         }
 
@@ -51,9 +52,24 @@ namespace PDR
 
         public Transform GetTransform() { return _gameObject.transform; }
 
-        public void PlayAnimation(string animation, float crossFade = 0.2f, float time = 0)
+        /// <summary>
+        /// 播放持续性动画，如idle，move等
+        /// </summary>
+        /// <param name="animation"></param>
+        public void PlayContinuousAnimation(string animation)
         {
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ANIMATION, this, animation, time, crossFade);
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_CONTINUOUS_ANIMATION, this, animation);
+        }
+
+        /// <summary>
+        /// 播放一次性动画
+        /// </summary>
+        /// <param name="animation"></param>
+        /// <param name="time"></param>
+        /// <param name="crossFade"></param>
+        public void PlayOnceAnimation(string animation, float time = 1.0f, float crossFade = 0.2f)
+        {
+            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ONCE_ANIMATION, this, animation, time);
         }
 
         public void UpdateTeamType(TeamType teamType)

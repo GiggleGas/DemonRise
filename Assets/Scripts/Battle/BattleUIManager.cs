@@ -123,7 +123,7 @@ namespace PDR
         public List<GameObject> fires = new List<GameObject>();
 
         // attack
-        public Dictionary<MapPawn, AttackStruct> _attackList;
+        public Dictionary<MapPawn, AttackStruct> _attackList = new Dictionary<MapPawn, AttackStruct>();
 
         public void OnAwake()
         {
@@ -131,15 +131,11 @@ namespace PDR
             RegisterViews();
 
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.ROLL_THE_DICE, BeginRolling);
-            // EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.GAMBLING_VIEW_FINISH_LOAD, OnGamblingFinishLoad);
             EventMgr.Instance.Register<Vector2Int>(EventType.EVENT_BATTLE_UI, SubEventType.DRAW_ROAD, OnDrawRoad);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.CLEAR_ROAD, OnClearRoad);
             EventMgr.Instance.Register<Vector2Int>(EventType.EVENT_BATTLE_UI, SubEventType.BLOCK_MOUSE_DOWN, OnClickBlock);
             EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_MOVE_FINISH, OnPawnStopMove);
-            EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.AI_ATTACK_FINISH, OnAttack);
-            EventMgr.Instance.Register<MapPawn, MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PLAYER_ATTACK_FINISH, OnAttack);
             EventMgr.Instance.Register<MapPawn, string>(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ANIMATION_FINISH, OnAnimFinish);
-            EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.AI_TURN_FINISH, OnEnemyMoveFinish);
             EventMgr.Instance.Register<CardBase>(EventType.EVENT_BATTLE_UI, SubEventType.CLICK_CARD, OnSelectCard);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.CARD_USE_FINISH, OnCardSkillFinish);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.STEP_ON_GOLDEN_BLOCK, OnStepOnGoldenBlock);
@@ -230,11 +226,11 @@ namespace PDR
         {
             if(level == 1)
             {
-                SpawnEnemy(3, new List<int>() { 7, 10, 37, 34 }, 70.0f, 20.0f);
+                SpawnEnemy(1, new List<int>() { 10, 37, 34 }, 70.0f, 20.0f);
             }
             else if(level == 6)
             {
-                SpawnEnemy(4, new List<int>() { 0, 46, 33, 11, 3, 25, 22 }, 100.0f, 50.0f);
+                //SpawnEnemy(4, new List<int>() { 0, 46, 33, 11, 3, 25, 22 }, 100.0f, 50.0f);
             }
             else if(level == 3)
             {
@@ -1024,14 +1020,13 @@ namespace PDR
         /// <param name="targetBlock"></param>
         public void TryAttack(MapPawn sourcePawn, BlockInfo targetBlock)
         {
-            // sourcePawn._animControlComp.RegisterAttackContext(targetBlock.pawn);
-            sourcePawn.PlayAnimation("Attack");
+            sourcePawn.PlayOnceAnimation("Attack", 0.8f);
         }
 
         private void OnAttack(MapPawn sourceGo)
         {
             float actualDamage = _playerPawn.TakeDamage(sourceGo, sourceGo.GetAttackValue());
-            sourceGo.PlayAnimation("Idle");
+            sourceGo.PlayContinuousAnimation("Idle");
             CheckPlayerStatus();
         }
 
@@ -1041,14 +1036,14 @@ namespace PDR
             EnemyPawn enemy = targetGo as EnemyPawn;
             if (enemy != null && enemy._health <= 0)
             {
-                enemy.PlayAnimation("Dead", 1.0f, 0.2f);
+                enemy.PlayOnceAnimation("Dead");
             }
-            sourceGo.PlayAnimation("Idle");
+            sourceGo.PlayContinuousAnimation("Idle");
             if(sourceGo == _playerPawn)
             {
                 ModifyEnergy(-1);
                 CheckEnergy();
-            }
+            }   
         }
 
         private void OnAnimFinish(MapPawn sourcePawn, string animation) 
@@ -1102,13 +1097,14 @@ namespace PDR
 
             sourceBlock.pawn = null;
             SetBattleState(BattleState.PlayerTurn, BattleSubState.UpdatingMove);
+            _playerPawn.PlayContinuousAnimation("Move");
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_MOVE, (MapPawn)_playerPawn, safeBlocks);
 
         }
 
         private void OnPawnStopMove(MapPawn pawn)
         {
-            pawn.PlayAnimation("Idle");
+            pawn.PlayContinuousAnimation("Idle");
             if (pawn == _playerPawn)
             {
                 CheckEnergy();
@@ -1250,9 +1246,12 @@ namespace PDR
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHANGE_DICE_STATE, true);
         }
 
-        public void ModifyEnergy(int value)
+        public void ModifyEnergy(int value, MapPawn pawn = null)
         {
-            UpdateEnergy(energy + value);
+            if(pawn == null || pawn == _playerPawn)
+            {
+                UpdateEnergy(energy + value);
+            }
         }
         #endregion
 

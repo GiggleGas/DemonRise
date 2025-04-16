@@ -52,11 +52,14 @@ namespace PDR
 
         public const int PAWN_MOVE = 207;
         public const int PAWN_MOVE_FINISH = 208;
-        public const int PAWN_PLAY_ANIMATION = 209;
-        public const int PAWN_PLAY_ANIMATION_FINISH = 210;
+        public const int PAWN_PLAY_ONCE_ANIMATION = 209; // 播放一次性动画
+        public const int PAWN_PLAY_ANIMATION_FINISH = 210; // 播放一次性动画结束
+        public const int PAWN_PLAY_CONTINUOUS_ANIMATION = 211; // 播放持久动画
 
         public const int MONSTER_TURN_START = 211;
         public const int MONSTER_TURN_FINISH = 212;
+
+        public const int PLAYER_ATTACK_FINISH = 213;
 
         // card
         public const int UPDATE_HAND_DECK = 301;

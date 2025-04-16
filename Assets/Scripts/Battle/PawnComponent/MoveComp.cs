@@ -31,7 +31,6 @@ namespace PDR
             int currentPathIndex = 0;
             Vector3 targetPosition;
             float movementSpeed = 5.0f; // 可配置移动速度
-            obj.PlayAnimation("Move");
 
             // 跳过起始点（如果已经是正确位置）
             if (obj._gridLocation == path[0])
@@ -59,7 +58,7 @@ namespace PDR
 
                 // 确保精确到达
                 obj.UpdatePawnBlock(targetBlock, curBlock);
-                BattleManager.Instance.ModifyEnergy(-1);
+                BattleManager.Instance.ModifyEnergy(-1, obj);
 
                 // 更新地块事件 不期望在这里实现，再定夺
                 BlockInfo currentBlock = BattleManager.Instance.GetBlockByGridLocation(path[currentPathIndex]);
@@ -71,7 +70,6 @@ namespace PDR
                 yield return new WaitForSeconds(0.01f);
             }
 
-            obj.PlayAnimation("Idle");
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_MOVE_FINISH, obj);
             currentMoveCoroutine = null;
         }
