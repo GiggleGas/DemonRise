@@ -50,6 +50,7 @@ namespace PDR
         private GameObject _range;
         private GameObject _warning; 
         private GameObject _golden;
+        private GameObject _poison;
 
         private void Awake()
         {
@@ -58,6 +59,7 @@ namespace PDR
             _range = transform.Find("range").gameObject;
             _warning = transform.Find("warning").gameObject;
             _golden = transform.Find("golden").gameObject;
+            _poison = transform.Find("poison").gameObject;
         }
 
         private void OnMouseOver()
@@ -105,6 +107,11 @@ namespace PDR
         public bool IsGolden()
         {
             return _golden.activeSelf;
+        }
+
+        public void ShowPoison(bool value)
+        {
+            _poison.SetActive(value);
         }
     }
 

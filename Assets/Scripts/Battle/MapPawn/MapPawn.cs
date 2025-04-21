@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Unity.IO.LowLevel.Unsafe;
 using Unity.VisualScripting;
+using UnityEditor;
 using UnityEngine;
 
 namespace PDR
@@ -15,7 +16,7 @@ namespace PDR
         public GameObject _gameObject;                  // 场景物体Go
         public Vector2Int _gridLocation;                // 位置
         public PawnDisplayComp _pawnDisplayComp;        // 表现组件
-        public Animator _animator;                      // 动画组件
+        public AnimControlComp _animControlComp;         // 动画控制组件
 
         public TeamType _teamType;
         public int _moveRange;
@@ -26,9 +27,10 @@ namespace PDR
         {
             _gameObject = gameObject;
             _gameObject.GetComponent<Transform>().position = block._worldlocation;
+            _animControlComp = gameObject.AddComponent<AnimControlComp>();
+            _animControlComp.Init(this);
             _gridLocation = block._gridLocation;
             _pawnDisplayComp = _gameObject.GetComponent<PawnDisplayComp>();
-            _animator = _gameObject.GetComponent<Animator>();
             _teamType = teamType;
             _moveRange = moveRange;
             _attackRange = attackRange;
@@ -38,7 +40,7 @@ namespace PDR
 
         public virtual void PostInitialize()
         {
-            PlayContinuousAnimation("Idle");
+            PlayAnimation("Idle");
             UpdateGo();
         }
 
@@ -56,20 +58,9 @@ namespace PDR
         /// 播放持续性动画，如idle，move等
         /// </summary>
         /// <param name="animation"></param>
-        public void PlayContinuousAnimation(string animation)
+        public void PlayAnimation(string animation)
         {
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_CONTINUOUS_ANIMATION, this, animation);
-        }
-
-        /// <summary>
-        /// 播放一次性动画
-        /// </summary>
-        /// <param name="animation"></param>
-        /// <param name="time"></param>
-        /// <param name="crossFade"></param>
-        public void PlayOnceAnimation(string animation, float time = 1.0f, float crossFade = 0.2f)
-        {
-            EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ONCE_ANIMATION, this, animation, time);
+            _animControlComp.PlayAnimation(animation);
         }
 
         public void UpdateTeamType(TeamType teamType)
@@ -110,7 +101,12 @@ namespace PDR
 
         virtual public void OnAnimFinish(string animation)
         {
-
+            if(animation == "Attack")
+            {
+                PlayAnimation("Idle");
+                EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.CHECK_DAMAGE, this);
+                EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ANIMATION_FINISH, this, animation);
+            }
         }
     }
 }

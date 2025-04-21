@@ -3,6 +3,7 @@ using Stateless;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -106,6 +107,8 @@ namespace PDR
         private List<Vector2Int> walkableBlocks = new List<Vector2Int>(); // 可移动区域缓存
         private List<Vector2Int> currentShowPath = new List<Vector2Int>(); // 当前为显示UI的格子
         private List<Vector2Int> currentWarningBlocks = new List<Vector2Int>(); // 当前预警格子
+        private int poisonNum = 0;
+        private List<Vector2Int> poisonBlocks = new List<Vector2Int>(); // 当前毒圈格子
         public PlayerPawn _playerPawn; // 玩家Pawn
 
         // Dice
@@ -136,11 +139,11 @@ namespace PDR
             EventMgr.Instance.Register<Vector2Int>(EventType.EVENT_BATTLE_UI, SubEventType.BLOCK_MOUSE_DOWN, OnClickBlock);
             EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_MOVE_FINISH, OnPawnStopMove);
             EventMgr.Instance.Register<MapPawn, string>(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_PLAY_ANIMATION_FINISH, OnAnimFinish);
+            EventMgr.Instance.Register<MapPawn>(EventType.EVENT_BATTLE_UI, SubEventType.CHECK_DAMAGE, CheckDamage);
             EventMgr.Instance.Register<CardBase>(EventType.EVENT_BATTLE_UI, SubEventType.CLICK_CARD, OnSelectCard);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.CARD_USE_FINISH, OnCardSkillFinish);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.STEP_ON_GOLDEN_BLOCK, OnStepOnGoldenBlock);
             EventMgr.Instance.Register(EventType.EVENT_BATTLE_UI, SubEventType.SPAWN_FIRE, SpawnFire);
-
 
             diceSprites = new Sprite[6];
             for (int i = 0; i < 6; i++)
@@ -157,11 +160,9 @@ namespace PDR
             playerGoTemplete = viewRoot.GetComponent<GameEntry>().playerGoPrefab;
             MoveComp moveComp = viewRoot.AddComponent<MoveComp>();
             moveComp.RegisterEvents();
-            AnimControlComp animControlComp = viewRoot.AddComponent<AnimControlComp>();
-            animControlComp.RegisterEvents();
 
             currentLevel = 0;
-            maxLevel = 20;
+            maxLevel = 2; // 大于maxlevel会有毒圈
 
             InitMap();
             InitPlayer();
@@ -197,11 +198,8 @@ namespace PDR
         /// </summary>
         private void StartNewRound()
         {
-            if (currentLevel < maxLevel || enemyPawns.Count > 0)
-            {
-                currentLevel++;
-                InitializeLevel(currentLevel);
-            }
+            currentLevel++;
+            InitializeLevel(currentLevel);
 
             StartPlayerTurn(); // 重新开始玩家回合
         }
@@ -239,6 +237,11 @@ namespace PDR
             else if(level == 10)
             {
                 EnhanceEnemy(50, 15, 5);
+            }
+
+            if(level > maxLevel)
+            {
+                UpdatePoisonCircle();
             }
         }
 
@@ -310,6 +313,105 @@ namespace PDR
                 block.blockUI.SetGolden(true);
                 return;
             }
+        }
+
+        private void UpdatePoisonCircle()
+        {
+            // 已覆盖全图则直接返回
+            if (poisonNum == int.MaxValue) return;
+
+            // 获取当前毒圈层数对应的范围
+            int currentLayer = poisonNum;
+            List<Vector2Int> poisonBlocks = GetPoisonLayer(currentLayer);
+
+            // 如果没有可生成毒圈的位置
+            if (poisonBlocks.Count == 0)
+            {
+                // poisonNum = int.MaxValue;
+                return;
+            }
+
+            // 显示新毒圈
+            foreach (Vector2Int pos in poisonBlocks)
+            {
+                BlockInfo block = GetBlock(pos);
+                if (block != null)
+                {
+                    block.blockUI.ShowPoison(true);
+
+                }
+            }
+
+            // 更新毒圈层数
+            poisonNum++;
+        }
+
+        // 获取指定层数的毒圈范围
+        private List<Vector2Int> GetPoisonLayer(int layer)
+        {
+            List<Vector2Int> result = new List<Vector2Int>();
+
+            // 计算可行走区域的真实边界
+            int minX = walkableBlocks.Min(p => p.x);
+            int maxX = walkableBlocks.Max(p => p.x);
+            int minY = walkableBlocks.Min(p => p.y);
+            int maxY = walkableBlocks.Max(p => p.y);
+
+            // 计算可行走区域的真实尺寸
+            int realWidth = maxX - minX + 1;
+            int realHeight = maxY - minY + 1;
+
+            // 计算最大有效层数
+            int maxLayer = Mathf.Min(realWidth, realHeight) / 2;
+            if (layer > maxLayer) return result;
+
+            // 计算当前层的四边坐标范围
+            int curMinX = minX + layer;
+            int curMaxX = maxX - layer;
+            int curMinY = minY + layer;
+            int curMaxY = maxY - layer;
+
+            // 生成当前层的四边坐标
+            for (int x = curMinX; x <= curMaxX; x++)
+            {
+                TryAddBlock(x, curMinY, result);    // 上边
+                TryAddBlock(x, curMaxY, result);    // 下边
+            }
+
+            for (int y = curMinY + 1; y <= curMaxY - 1; y++)
+            {
+                TryAddBlock(curMinX, y, result);    // 左边
+                TryAddBlock(curMaxX, y, result);    // 右边
+            }
+
+            return result;
+        }
+
+        // 尝试添加有效地块
+        private void TryAddBlock(int x, int y, List<Vector2Int> list)
+        {
+            Vector2Int pos = new Vector2Int(x, y);
+            if (walkableBlocks.Contains(pos) &&
+               !list.Contains(pos))
+            {
+                list.Add(pos);
+            }
+        }
+
+        // 辅助方法获取地块
+        private BlockInfo GetBlock(Vector2Int pos)
+        {
+            if (pos.x >= 0 && pos.x < gridData.GetLength(0) &&
+                pos.y >= 0 && pos.y < gridData.GetLength(1))
+            {
+                return gridData[pos.x, pos.y];
+            }
+            return null;
+        }
+
+        private void ClearAllPoison()
+        {
+
         }
 
         protected void OnStepOnGoldenBlock()
@@ -536,8 +638,25 @@ namespace PDR
             fires.Add(fireGo);
         }
 
-        #endregion
+        private void CheckDamage(MapPawn attackPawn)
+        {
+            if (attackPawn == null || attackPawn != _currentEnemy)
+            {
+                return;
+            }
 
+            // 实际伤害计算
+            if (_attackList.ContainsKey(_currentEnemy))
+            {
+                AttackStruct attackStruct = _attackList[attackPawn];
+                foreach (var target in attackStruct.attackTargets)
+                {
+                    target.TakeDamage(_currentEnemy, _currentEnemy.GetAttackValue());
+                }
+            }
+        }
+
+        #endregion
 
         #region ------------------------------------------------------------------TileMap 包括地图和部分地图内容判断------------------------------------------------------------------
         /// <summary>
@@ -549,7 +668,6 @@ namespace PDR
             _bounds = _tilemap.cellBounds;
 
             InitBlockData();
-            //RefreshBlockEvents(0); // todo 读表查配置 初始化地图当前怪物和Actor
         }
 
         /// <summary>
@@ -1001,7 +1119,7 @@ namespace PDR
 
             // 42随便写的
             BlockInfo block = gridData[walkableBlocks[20].x, walkableBlocks[20].y];
-            _playerPawn = new PlayerPawn(block, GameObject.Instantiate(playerGoTemplete, pawnGoRoot.transform), TeamType.Friend, 1, 1, 70f, 15f, 0, 100);
+            _playerPawn = new PlayerPawn(block, GameObject.Instantiate(playerGoTemplete, pawnGoRoot.transform), TeamType.Friend, 1, 1, 70000f, 15f, 0, 100);
             _playerPawn.PostInitialize();
         }
 
@@ -1020,13 +1138,13 @@ namespace PDR
         /// <param name="targetBlock"></param>
         public void TryAttack(MapPawn sourcePawn, BlockInfo targetBlock)
         {
-            sourcePawn.PlayOnceAnimation("Attack", 0.8f);
+            sourcePawn.PlayAnimation("Attack");
         }
 
         private void OnAttack(MapPawn sourceGo)
         {
             float actualDamage = _playerPawn.TakeDamage(sourceGo, sourceGo.GetAttackValue());
-            sourceGo.PlayContinuousAnimation("Idle");
+            sourceGo.PlayAnimation("Idle");
             CheckPlayerStatus();
         }
 
@@ -1036,9 +1154,9 @@ namespace PDR
             EnemyPawn enemy = targetGo as EnemyPawn;
             if (enemy != null && enemy._health <= 0)
             {
-                enemy.PlayOnceAnimation("Dead");
+                enemy.PlayAnimation("Dead");
             }
-            sourceGo.PlayContinuousAnimation("Idle");
+            sourceGo.PlayAnimation("Idle");
             if(sourceGo == _playerPawn)
             {
                 ModifyEnergy(-1);
@@ -1097,14 +1215,14 @@ namespace PDR
 
             sourceBlock.pawn = null;
             SetBattleState(BattleState.PlayerTurn, BattleSubState.UpdatingMove);
-            _playerPawn.PlayContinuousAnimation("Move");
+            _playerPawn.PlayAnimation("Move");
             EventMgr.Instance.Dispatch(EventType.EVENT_BATTLE_UI, SubEventType.PAWN_MOVE, (MapPawn)_playerPawn, safeBlocks);
 
         }
 
         private void OnPawnStopMove(MapPawn pawn)
         {
-            pawn.PlayContinuousAnimation("Idle");
+            pawn.PlayAnimation("Idle");
             if (pawn == _playerPawn)
             {
                 CheckEnergy();

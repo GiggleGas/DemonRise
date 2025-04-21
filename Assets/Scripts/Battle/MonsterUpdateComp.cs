@@ -119,7 +119,7 @@ namespace PDR
                 attackStruct.attackTargets = new List<MapPawn> { target };
                 _attackList.Add(enemyPawn, attackStruct);
             }
-            enemyPawn.PlayOnceAnimation("Attack", 0.8f);
+            enemyPawn.PlayAnimation("Attack");
         }
 
         /// <summary>
@@ -128,21 +128,6 @@ namespace PDR
         /// <param name="mapPawn"></param>
         private void OnEnemyAttackFinish(MapPawn mapPawn)
         {
-            if(mapPawn == null || mapPawn != _currentEnemy )
-            {
-                return;
-            }
-
-            // 实际伤害计算
-            if(_attackList.ContainsKey(_currentEnemy))
-            {
-                AttackStruct attackStruct = _attackList[mapPawn];
-                foreach (var target in attackStruct.attackTargets)
-                {
-                    target.TakeDamage(_currentEnemy, _currentEnemy.GetAttackValue());
-                }
-                mapPawn.PlayContinuousAnimation("idle");
-            }
             BeginAIAction(); // 继续决策
         }
 
